@@ -106,7 +106,16 @@ def is_iterable(o):
     return True
 
 
-def from_none(exc):
-    """Suppress cause of an exception."""
-    exc.__cause__ = None
-    return exc
+def memo(f):
+    """Can only cache hashable arguments."""
+    def _f(*args, **kwargs):
+        key = args, tuple(kwargs.items())
+        try:
+            return cache[key]
+        except KeyError:
+            result = cache[key] = f(*args, **kwargs)
+            return result
+
+    cache = {}
+
+    return _f
