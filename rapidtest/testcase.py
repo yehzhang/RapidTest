@@ -4,7 +4,8 @@ from functools import reduce
 from inspect import getmembers, ismethod
 from sys import stdout
 
-from .utils import TreeNode, super_len, is_iterable, inject_depencies
+from .utils import super_len, is_iterable
+from .user_interfaces import inject_dependency, user_mode, get_dependency
 
 _sentinel = object()
 
@@ -36,6 +37,8 @@ class Case:
 
     INJECTED_TARGETS = set()
 
+    PRIMITIVE_TYPES = tuple([int, float, bool, str] + get_dependency())
+
     def __init__(self, *args, **kwargs):
         self.args = args
         self.initialized = False
@@ -64,7 +67,7 @@ class Case:
 
         # Inject dependencies such as TreeNode into user's solutions
         if target not in cls.INJECTED_TARGETS:
-            inject_depencies(target)
+            inject_dependency(target)
             cls.INJECTED_TARGETS.add(target)
 
         return target
@@ -105,7 +108,7 @@ class Case:
         """Initialize parameters of this case.
         This method is called in Test. No need to call again.
 
-        :param dict params: already processed test parameters
+        :param dict default_params: already processed test parameters
         """
         params = self.params
         self.params = {} if default_params is None else dict(default_params)
@@ -151,23 +154,21 @@ class Case:
 
     def execute(self, f):
         args = deepcopy(self.args)
-        if self.in_place_selector:
-            f(*args)
-            output = self.in_place_selector(args)
-        else:
+        with user_mode('Calling this method is not supported when judging'):
             output = f(*args)
+        if self.in_place_selector:
+            output = self.in_place_selector(args)
         return output
 
     def normalize_output(self, output):
         return self.post_proc(self._normalize_type(output))
 
-    def _normalize_type(self, output):
-        if isinstance(output, (list, tuple)):
-            output = [self._normalize_type(o) for o in output]
-        elif isinstance(output, (int, float, str, TreeNode)):
+    @classmethod
+    def _normalize_type(cls, output):
+        if isinstance(output, cls.PRIMITIVE_TYPES) or output is None:
             pass
-        elif output is None:
-            pass
+        elif is_iterable(output):
+            output = [cls._normalize_type(o) for o in output]
         else:
             raise RuntimeError('Type of output {} is invalid'.format(type(output)))
         return output
@@ -226,11 +227,11 @@ class Test:
 
         :param kwargs: keyword arguments passed to add_generator()
         """
-        type_err_msg = (
-            'Test object is a shortcut for calling add_generator if used as a decorator. The '
-            'test-generating function decorated will be passed to add_generator when @t is used, '
-            'or passed preceding other arguments when @t(*args, **kwargs) is used. '
-            'Check the method signature of add_generator to see what arguments are taken. ')
+        # type_err_msg = (
+        #     'Test object is a shortcut for calling add_generator if used as a decorator. The '
+        #     'test-generating function decorated will be passed to add_generator when @t is used, '
+        #     'or passed preceding other arguments when @t(*args, **kwargs) is used. '
+        #     'Check the method signature of add_generator to see what arguments are taken. ')
 
         if len(args) == 1 and callable(args[0]) and not kwargs:
             # Used like @self
@@ -266,9 +267,11 @@ class Test:
 
     def add_cases(self, cases):
         if isinstance(cases, (list, tuple)):
+            # not a generator. Do not lazy-evaluate for validating params
             for case in cases:
                 self.add_case(case)
         elif is_iterable(cases):
+            # probably a generator, using lazy-evaluation
             self._add_generator(cases)
         else:
             raise TypeError('cases are not callable nor iterable')
