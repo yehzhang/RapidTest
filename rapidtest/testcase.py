@@ -92,15 +92,15 @@ class Case:
         else:
             raise ValueError('Type of in_place {} is invalid'.format(type(in_place)))
 
-    def initialize(self, params=None):
+    def initialize(self, default_params=None):
         """Initialize parameters of this case.
         This method is called in Test. No need to call again.
 
         :param dict params: already processed test parameters
         """
-        old_params = self.params
-        self.params = {} if params is None else dict(params)
-        self.params.update(old_params)
+        params = self.params
+        self.params = {} if default_params is None else dict(default_params)
+        self.params.update(params)
 
         target = self.params.get(self.BIND_TARGET_CLASS, None)
         if target is None:
@@ -116,17 +116,18 @@ class Case:
         if result is _sentinel:
             raise RuntimeError('result was not specified')
         if callable(result):
-            result = self.execute(result, self.args)
+            result = self.execute(result)
         self.asserted_result = self.normalize_output(result)
 
         self.initialized = True
 
     def run(self):
-        if not self.initialized:
-            self.initialize()
-
-        output = self.execute(self.target_method, self.args)
-        self.target_result = self.normalize_output(output)
+        if self.target_result is _sentinel:
+            # Not run yet
+            if not self.initialized:
+                self.initialize()
+            output = self.execute(self.target_method)
+            self.target_result = self.normalize_output(output)
         return self.target_result == self.asserted_result
 
     def __str__(self):
@@ -139,11 +140,11 @@ class Case:
             comp_res = '?'
         return '{}({}) -> {}'.format(self.target_name, repr_args, comp_res)
 
-    def execute(self, f, args):
+    def execute(self, f):
+        args = deepcopy(self.args)
         if self.in_place_selector:
-            output = deepcopy(args)
-            f(*output)
-            output = self.in_place_selector(output)
+            f(*args)
+            output = self.in_place_selector(args)
         else:
             output = f(*args)
         return output
@@ -224,16 +225,8 @@ class Test:
 
         if len(args) == 1 and callable(args[0]) and not kwargs:
             # Used like @self
-            def _f(*args, **kwargs):
-                try:
-                    return f(*args, **kwargs)
-                except TypeError:
-                    # Skip some non-sense traceback
-                    raise TypeError(type_err_msg)
-
             [f] = args
-            self.add_generator(_f)
-
+            self.add_generator(f)
             return f
 
         else:
@@ -285,6 +278,7 @@ class Test:
             raise TypeError('case is not of type Case')
         case.initialize(self.bound_params)
         return case
+
     def run(self):
         """Run all pending cases."""
         self._run_sessions()
