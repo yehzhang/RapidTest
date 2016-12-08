@@ -1,5 +1,9 @@
 from collections import deque
 from itertools import count
+from sys import modules
+from random import randint, shuffle
+
+_sentinel = object()
 
 
 def rec_list(o):
@@ -33,10 +37,13 @@ class TreeNode(object):
         self.right = None
 
     def __eq__(self, o):
-        return isinstance(o, type(self)) and self.val == o.val
+        # TODO check parents?
+        return all(hasattr(o, k) for k in ('val', 'left', 'right')) and \
+            self.val == o.val and self.left == o.left and self.right == o.right
 
     def __repr__(self):
-        return '{}{}'.format(type(self).__name__, self)
+        return '{}{}'.format(type(self).__name__, self
+                             if self.left or self.right else '({})'.format(self))
 
     def __str__(self):
         return '({}, {}, {})'.format(self.val, self.left or '#', self.right or '#') \
@@ -71,10 +78,44 @@ class Tree(object):
         else:
             self.root = None
 
+    def inorder(self):
+        """
+        :return [int]:
+        """
+        pass
+
+    def postorder(self):
+        """
+        :return [int]:
+        """
+        pass
+
+    def preorder(self):
+        """
+        :return [int]:
+        """
+        pass
+
     @classmethod
     def make_root(cls, *args, **kwargs):
-        t = cls(*args, **kwargs)
-        return t.root
+        """
+        :return TreeNode:
+        """
+        return cls(*args, **kwargs).root
+
+    @classmethod
+    def make_random(cls, num_nodes=100):
+        """
+        :return Tree:
+        """
+        pass
+
+    @classmethod
+    def make_random_binary_search(cls, num_nodes=100):
+        """
+        :return Tree:
+        """
+        pass
 
 
 def super_len(o):
@@ -119,3 +160,17 @@ def memo(f):
     cache = {}
 
     return _f
+
+
+def inject_depencies(o):
+    module_name = getattr(o, '__module__', _sentinel)
+    module = modules.get(module_name, _sentinel)
+    if module is _sentinel:
+        return
+
+    for name in DEPENDENCY_NAMES:
+        if not hasattr(module, name):
+            setattr(module, name, globals()[name])
+
+DEPENDENCY_NAMES = 'TreeNode',
+assert all(name in globals() for name in DEPENDENCY_NAMES)

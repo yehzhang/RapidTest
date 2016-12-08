@@ -4,7 +4,7 @@ from functools import reduce
 from inspect import getmembers, ismethod
 from sys import stdout
 
-from .utils import TreeNode, super_len, is_iterable
+from .utils import TreeNode, super_len, is_iterable, inject_depencies
 
 _sentinel = object()
 
@@ -34,6 +34,8 @@ class Case:
     BIND_IN_PLACE = 'in_place'
     BIND_KEYS = frozenset([BIND_TARGET_CLASS, BIND_POST_PROCESSING, BIND_RESULT, BIND_IN_PLACE])
 
+    INJECTED_TARGETS = set()
+
     def __init__(self, *args, **kwargs):
         self.args = args
         self.initialized = False
@@ -52,12 +54,19 @@ class Case:
         if invalid_kwargs:
             invalid_kwargs = ', '.join(map(repr, invalid_kwargs))
             raise TypeError('Test parameters do not take {}'.format(invalid_kwargs))
-        return dict((k, getattr(cls, 'process_' + k, lambda x: x)(v)) for k, v in kwargs.items())
+        return {k: getattr(cls, 'process_' + k, lambda x: x)(v) for k, v in kwargs.items()}
 
     @classmethod
     def process_target(cls, target):
+        # TODO support for function targets
         if not isinstance(target, type):
             raise TypeError('target is not a class')
+
+        # Inject dependencies such as TreeNode into user's solutions
+        if target not in cls.INJECTED_TARGETS:
+            inject_depencies(target)
+            cls.INJECTED_TARGETS.add(target)
+
         return target
 
     @classmethod
