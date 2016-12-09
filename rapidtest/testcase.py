@@ -4,7 +4,7 @@ from functools import reduce
 from inspect import getmembers, ismethod
 from sys import stdout
 
-from .utils import super_len, is_iterable
+from .utils import super_len, is_iterable, identity
 from .user_interfaces import inject_dependency, user_mode, get_dependency
 
 _sentinel = object()
@@ -57,7 +57,7 @@ class Case:
         if invalid_kwargs:
             invalid_kwargs = ', '.join(map(repr, invalid_kwargs))
             raise TypeError('Test parameters do not take {}'.format(invalid_kwargs))
-        return {k: getattr(cls, 'process_' + k, lambda x: x)(v) for k, v in kwargs.items()}
+        return {k: getattr(cls, 'process_' + k, identity)(v) for k, v in kwargs.items()}
 
     @classmethod
     def process_target(cls, target):
@@ -120,7 +120,7 @@ class Case:
         o = target()
         self.target_name, self.target_method = self.get_method(o)
 
-        self.post_proc = self.params.get(self.BIND_POST_PROCESSING, lambda x: x)
+        self.post_proc = self.params.get(self.BIND_POST_PROCESSING, identity)
 
         self.in_place_selector = self.params.get(self.BIND_IN_PLACE, None)
 
