@@ -4,10 +4,9 @@ from collections import deque
 from contextlib import contextmanager
 from json import loads
 from itertools import count
+from inspect import getmodule
 
 from .utils import nop, randlist, randbool
-
-_sentinel = object()
 
 _kernel_mode = True
 _privilege_violation_msg = None
@@ -239,9 +238,8 @@ class Tree(object):
 
 
 def inject_dependency(o):
-    module_name = getattr(o, '__module__', _sentinel)
-    module = modules.get(module_name, _sentinel)
-    if module is _sentinel:
+    module = getmodule(o)
+    if module is None:
         return
 
     for name in DEPENDENCY_NAMES:
