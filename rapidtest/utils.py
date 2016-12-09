@@ -1,5 +1,5 @@
 from itertools import count
-from random import randint, shuffle, random
+from random import randint, random, sample
 
 
 def rec_list(o):
@@ -90,11 +90,7 @@ def randlist(count=20, sorted=False, unique=False, max_num=100, min_num=0):
     count, min_num, max_num = map(int, (count, min_num, max_num))
 
     if unique:
-        if count > max_num - min_num:
-            raise ValueError('Cannot generate enough unique values within the range')
-        nums = list(range(min_num, max_num + 1))
-        shuffle(nums)
-        del nums[count:]
+        nums = sample(range(min_num, max_num + 1), count)
     else:
         nums = [randint(min_num, max_num) for _ in range(count)]
 
