@@ -199,7 +199,8 @@ class Test:
     """
 
     def __init__(self, target=None, **kwargs):
-        self._pending_sessions = deque([[]])
+        self._current_session = None
+        self._pending_sessions = deque([])
         self.passed_cases = []
         self.failed_cases = []
         self.unborn_cases = 0
@@ -266,26 +267,30 @@ class Test:
     def add_case(self, case):
         """Add a case to be run when run() is called next time."""
         self._initialize(case)
-        self._pending_sessions[-1].append(case)
+
+        if self._current_session is None:
+            s = self._current_session = []
+            self._pending_sessions.append(iter(s))
+        self._current_session.append(case)
 
     def add_cases(self, cases):
         if isinstance(cases, (list, tuple)):
-            # not a generator. Do not lazy-evaluate for validating params
+            # not a generator. Do not lazy-evaluate for validating params immediately
             for case in cases:
                 self.add_case(case)
-        elif is_iterable(cases):
-            # probably a generator, using lazy-evaluation
-            self._add_generator(cases)
         else:
-            raise TypeError('cases are not callable nor iterable')
+            # probably a generator, using lazy-evaluation
+            self._add_generator(iter(cases))
+            self.separate()
 
     def _add_generator(self, gen):
         """Add a iterable of cases which are lazy-evaluated."""
-        self._pending_sessions.append(self._initialize(case) for case in gen)
+        gen_cases = (self._initialize(case) for case in gen)
+        self._pending_sessions.append(iter(gen_cases))
 
     def separate(self):
-        if self._pending_sessions[-1]:
-            self._pending_sessions.append([])
+        """Separate a set of individual cases from another one."""
+        self._current_session = None
 
     def _initialize(self, case):
         """Called to initialize a case."""
@@ -304,14 +309,14 @@ class Test:
 
         while self._pending_sessions:
             session = self._pending_sessions.popleft()
-            iter_session = iter(session)
             last_unborn_cases = self.unborn_cases
 
             try:
-                self._run_cases(iter_session)
+                self._run_cases(session)
             except Exception:
                 if self.unborn_cases == last_unborn_cases:
-                    self._pending_sessions.appendleft(iter_session)
+                    # iterator did not raise an exception. It is the case.run()
+                    self._pending_sessions.appendleft(session)
                 raise
 
     def _run_cases(self, cases):
