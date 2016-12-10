@@ -1,12 +1,11 @@
-from sys import modules
-from random import random
 from collections import deque
 from contextlib import contextmanager
-from json import loads
-from itertools import count
 from inspect import getmodule
+from itertools import count
+from json import loads
+from random import random
 
-from .utils import nop, randlist, randbool
+from .utils import nop, randbool
 
 _kernel_mode = True
 _privilege_violation_msg = None

@@ -1,5 +1,13 @@
 from itertools import count
 from random import randint, random, sample
+import sys
+
+if sys.version_info.major < 3:
+    range = xrange
+
+
+MAX_INT = 2 ** 31 - 1
+MIN_INT = -(2 ** 31)
 
 
 def rec_list(o):
@@ -28,23 +36,20 @@ def rec_unordered(o):
 
 def super_len(o):
     """May loop forever if o is an infinite generator."""
-    try:
+    if hasattr(o, '__len__'):
         return len(o)
-    except Exception:
-        pass
 
-    if not is_iterable(o):
-        return 0
+    if is_iterable(o):
+        o = iter(o)
+        for i in count():
+            try:
+                next(o)
+            except StopIteration:
+                return i
+            except Exception:
+                pass
 
-    i = 0
-    for i in count():
-        try:
-            next(o)
-        except StopIteration:
-            break
-        except Exception:
-            pass
-    return i
+    return 0
 
 
 def is_iterable(o):
@@ -79,11 +84,10 @@ def nop(*args, **kwargs):
     pass
 
 
-def randlist(count=20, sorted=False, unique=False, max_num=100, min_num=0):
+def randlist(count=20, unique=False, max_num=100, min_num=0):
     """Generate a list of random integers within the range [min_num, max_num]
 
     :param bool count: how many integers are there in the list
-    :param bool sorted:
     :param bool unique: whether generate no duplicates
     :return [int]:
     """
@@ -93,9 +97,6 @@ def randlist(count=20, sorted=False, unique=False, max_num=100, min_num=0):
         nums = sample(range(min_num, max_num + 1), count)
     else:
         nums = [randint(min_num, max_num) for _ in range(count)]
-
-    if sorted:
-        nums.sort()
 
     return nums
 
