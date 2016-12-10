@@ -1,11 +1,13 @@
 from __future__ import print_function
+
+from collections import deque
 from copy import deepcopy
 from functools import reduce
 from inspect import getmembers, ismethod
 from sys import stdout
 
-from .utils import super_len, is_iterable, identity
 from .user_interfaces import inject_dependency, user_mode, get_dependency
+from .utils import super_len, is_iterable, identity
 
 _sentinel = object()
 
@@ -197,9 +199,10 @@ class Test:
     """
 
     def __init__(self, target=None, **kwargs):
-        self._pending_sessions = [[]]
+        self._pending_sessions = deque([[]])
         self.passed_cases = []
         self.failed_cases = []
+        self.unborn_cases = 0
 
         self.closed = False
 
@@ -218,7 +221,7 @@ class Test:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         Case.current_test = None
-        self._run_sessions()
+        self.run()
         self.close()
 
     def __call__(self, *args, **kwargs):
@@ -297,55 +300,58 @@ class Test:
 
     def _run_sessions(self):
         """Cases are already initialized at this time."""
-        if self.failed_cases:
-            return
-
-        exc = None
-
-        i = 0
-        for i, session in enumerate(self._pending_sessions, 1):
-            iter_session = iter(session)
-            passed_cases, failed_cases, exc = self._run_cases(iter_session)
-
-            self.passed_cases.extend(passed_cases)
-            if failed_cases:
-                self.failed_cases.extend(failed_cases)
-                self._pending_sessions.append(iter_session)
-                break
-
-        del self._pending_sessions[:i]
         self.closed = False
 
-        if exc is not None:
-            raise exc
+        while self._pending_sessions:
+            session = self._pending_sessions.popleft()
+            iter_session = iter(session)
+            last_unborn_cases = self.unborn_cases
 
-    @staticmethod
-    def _run_cases(cases):
-        passed_cases = []
-        failed_cases = []
-        exc = None
-
-        for c in cases:
             try:
-                success = c.run()
-            except Exception as e:
-                exc = e
+                self._run_cases(iter_session)
+            except Exception:
+                if self.unborn_cases == last_unborn_cases:
+                    self._pending_sessions.appendleft(iter_session)
+                raise
+
+    def _run_cases(self, cases):
+        """
+        :param iterator cases:
+        """
+        has_print = False
+
+        try:
+            while True:
+                try:
+                    case = next(cases)
+                except StopIteration:
+                    break
+                except Exception:
+                    print('?', end='')
+                    stdout.flush()
+                    has_print = True
+
+                    self.unborn_cases += 1
+                    raise
+
                 success = False
 
-            symbol = '.' if success else 'x'
-            print(symbol, end='')
-            stdout.flush()
-            if success:
-                passed_cases.append(c)
-            else:
-                failed_cases.append(c)
-                break
+                try:
+                    success = case.run()
+                finally:
+                    symbol = '.' if success else 'x'
+                    print(symbol, end='')
+                    stdout.flush()
+                    has_print = True
 
-        if passed_cases or failed_cases:
-            print()
-            stdout.flush()
+                    (self.passed_cases if success else self.failed_cases).append(case)
 
-        return passed_cases, failed_cases, exc
+                if not success:
+                    raise ValueError(str(case))
+        finally:
+            if has_print:
+                print()
+                stdout.flush()
 
     def close(self):
         if not self.closed:
@@ -353,14 +359,18 @@ class Test:
             self.closed = True
 
     def print_stats(self):
-        cnt_pending_cases = sum(map(super_len, self._pending_sessions))
-        if self.failed_cases:
-            print('Failed: {}'.format(self.failed_cases[0]))
+        if self.unborn_cases:
+            return
+
+        try:
+            cnt_pending_cases = sum(map(super_len, self._pending_sessions))
+        except Exception:
+            return
+        if cnt_pending_cases:
+            print('Leaving {} pending cases'.format(cnt_pending_cases))
         elif self.passed_cases:
-            if not cnt_pending_cases:
+            if not self.failed_cases:
                 print('Passed all {} test cases'.format(len(self.passed_cases)))
         else:
             print('No case was tested')
-        if cnt_pending_cases:
-            print('Leaving {} pending cases'.format(cnt_pending_cases))
         stdout.flush()

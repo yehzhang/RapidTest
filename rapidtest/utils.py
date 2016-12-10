@@ -46,8 +46,6 @@ def super_len(o):
                 next(o)
             except StopIteration:
                 return i
-            except Exception:
-                pass
 
     return 0
 
