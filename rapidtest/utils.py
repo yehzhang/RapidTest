@@ -1,6 +1,6 @@
+import sys
 from itertools import count
 from random import randint, random, sample
-import sys
 
 if sys.version_info.major < 3:
     range = xrange
@@ -82,11 +82,13 @@ def nop(*args, **kwargs):
     pass
 
 
-def randlist(count=20, unique=False, max_num=100, min_num=0):
+def randints(count=20, unique=False, max_num=100, min_num=0):
     """Generate a list of random integers within the range [min_num, max_num]
 
-    :param bool count: how many integers are there in the list
+    :param int count: how many integers are there in the list
     :param bool unique: whether generate no duplicates
+    :param int max_num: maximum possible number in the list
+    :param int min_num: minimum possible number in the list
     :return [int]:
     """
     count, min_num, max_num = map(int, (count, min_num, max_num))

@@ -5,7 +5,7 @@ from itertools import count
 from json import loads
 from random import random
 
-from .utils import nop, randbool
+from .utils import nop, randbool, randints
 
 _kernel_mode = True
 _privilege_violation_msg = None
@@ -208,7 +208,7 @@ class Tree(object):
         if binary_search:
             vals = [0] * num_nodes  # just a placeholder array
         else:
-            vals = list(range(num_nodes))
+            vals = randints(num_nodes)
 
         # Randomize structure
         structured_vals = []
