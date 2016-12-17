@@ -13,7 +13,8 @@ _privilege_violation_msg = None
 
 @contextmanager
 def user_mode(msg=None):
-    """
+    """Prevent running privileged functions in this context.
+
     :param str msg: message to warn user about when privilege is violated
     """
     global _kernel_mode, _privilege_violation_msg
@@ -28,36 +29,53 @@ def user_mode(msg=None):
     _privilege_violation_msg = None
 
 
-def _require_privilege():
-    if not _kernel_mode:
-        msg = 'Using this feature is unsupported' if _privilege_violation_msg is None else \
-            _privilege_violation_msg
-        raise RuntimeError(msg)
+def privileged(f):
+    """Mark a function as privileged."""
+    def _f(*args, **kwargs):
+        if not _kernel_mode:
+            msg = 'Using this feature is unsupported' if _privilege_violation_msg is None else \
+                _privilege_violation_msg
+            raise RuntimeError(msg)
+        return f(*args, **kwargs)
+
+    return _f
 
 
-class TreeNode(object):
+class Reprable(object):
+    NULL = '#'
+
+    def __repr__(self):
+        return '{}{}'.format(type(self).__name__, self)
+
+    def __str__(self):
+        raise NotImplementedError
+
+
+class TreeNode(Reprable):
+    INORDER = 'inorder'
+    PREORDER = 'preorder'
+    POSTORDER = 'postorder'
+
     def __init__(self, x):
         self.val = x
         self.left = None
         self.right = None
 
+    @privileged
     def __eq__(self, o):
-        _require_privilege()
-        return all(hasattr(o, k) for k in ('val', 'left',
-                                           'right')) and self.val == o.val and self.left == \
-                                                                               o.left and \
-               self.right == o.right
+        return self._eq(o)
 
-    def __repr__(self):
-        return '{}{}'.format(type(self).__name__, self)
+    def _eq(self, o):
+        return o and self.val == o.val and self.left and self.left._eq(
+            o.left) and self.right and self.right._eq(o.right)
 
     def __str__(self):
         return self._to_string()
 
     def _to_string(self, top_level=True):
         if self.left or self.right:
-            str_left = self.left._to_string(False) if self.left else '#'
-            str_right = self.right._to_string(False) if self.right else '#'
+            str_left = self.left._to_string(False) if self.left else self.NULL
+            str_right = self.right._to_string(False) if self.right else self.NULL
             res = '({}, {}, {})'.format(self.val, str_left, str_right)
         else:
             res = ('({})' if top_level else '{}').format(self.val)
@@ -66,59 +84,12 @@ class TreeNode(object):
     def get_val(self):
         return self.val
 
-
-class Tree(object):
-    """
-    :param vals: an array of values, or a json string that contains an array of values
-    """
-
-    INORDER = 'inorder'
-    PREORDER = 'preorder'
-    POSTORDER = 'postorder'
-
-    def __init__(self, vals):
-        try:
-            if isinstance(vals, str):
-                vals = loads(vals)
-            vals = list(vals)
-        except (ValueError, TypeError):
-            raise ValueError('vals is not an array of values nor a json string containing that')
-
-        if vals:
-            assert vals[0] is not None, 'Root of tree cannot be None'
-            self.root = TreeNode(vals[0])
-
-            q = deque([self.root])
-            i = 1
-            while q and i < len(vals):
-                parent = q.popleft()
-
-                if vals[i] is not None:
-                    parent.left = TreeNode(vals[i])
-                    q.append(parent.left)
-                i += 1
-
-                if not i < len(vals):
-                    break
-                if vals[i] is not None:
-                    parent.right = TreeNode(vals[i])
-                    q.append(parent.right)
-                i += 1
-
-        else:
-            self.root = None
-
-    def __repr__(self):
-        return '{}{}'.format(type(self).__name__, self.root)
-
-    def __str__(self):
-        return str(self.root)
-
+    @privileged
     def traverse_map(self, function, order=INORDER):
         """Apply function to every node in the given order, and return a list of the results.
 
         :param function: a function that takes a TreeNode and returns a result
-        :param order: either Tree.INORDER, Tree.PREORDER, or Tree.POSTORDER
+        :param order: either TreeNode.INORDER, TreeNode.PREORDER, or TreeNode.POSTORDER
         :return [any]:
         """
 
@@ -131,7 +102,7 @@ class Tree(object):
         res = []
 
         stack = []
-        node = self.root
+        node = self
 
         if order in (self.INORDER, self.PREORDER):
             if order == self.INORDER:
@@ -163,6 +134,7 @@ class Tree(object):
 
         return res
 
+    @privileged
     def inorder(self):
         """Return inorder traversal of nodes' values
 
@@ -170,6 +142,7 @@ class Tree(object):
         """
         return self.traverse_map(TreeNode.get_val, self.INORDER)
 
+    @privileged
     def postorder(self):
         """Return postorder traversal of nodes' values
 
@@ -177,6 +150,7 @@ class Tree(object):
         """
         return self.traverse_map(TreeNode.get_val, self.POSTORDER)
 
+    @privileged
     def preorder(self):
         """Return preorder traversal of nodes' values
 
@@ -184,6 +158,7 @@ class Tree(object):
         """
         return self.traverse_map(TreeNode.get_val, self.PREORDER)
 
+    @privileged
     def flatten(self):
         """
         :return [int]:
@@ -191,18 +166,56 @@ class Tree(object):
         raise NotImplementedError
 
     @classmethod
-    def make_root(cls, *args, **kwargs):
-        """
-        :return TreeNode:
-        """
-        return cls(*args, **kwargs).root
+    @privileged
+    def from_iterable(cls, vals):
+        try:
+            vals = deque(vals)
+        except TypeError:
+            raise TypeError('vals is not an iterable')
+
+        if not vals:
+            return None
+
+        val = vals.popleft()
+        if val is None:
+            raise ValueError('Root of tree cannot be None')
+        root = cls(val)
+
+        q = deque([root])
+        while q and vals:
+            parent = q.popleft()
+
+            val = vals.popleft()
+            if val is not None:
+                parent.left = cls(val)
+                q.append(parent.left)
+
+            if not vals:
+                break
+            val = vals.popleft()
+            if val is not None:
+                parent.right = cls(val)
+                q.append(parent.right)
+
+        return root
 
     @classmethod
+    @privileged
+    def from_string(cls, vals):
+        try:
+            vals = loads(vals)
+        except (ValueError, TypeError):
+            raise ValueError('vals is not a json string representing an array of values')
+
+        return cls.from_iterable(vals)
+
+    @classmethod
+    @privileged
     def make_random(cls, num_nodes=100, binary_search=False):
         """
         :param int num_nodes: number of nodes in the tree
         :param bool binary_search: whether return a binary search tree or simply a binary tree
-        :return Tree:
+        :return TreeNode:
         """
         num_nodes = int(num_nodes)
         if binary_search:
@@ -224,16 +237,16 @@ class Tree(object):
                 structured_vals.append(vals[cnt_nodes])
                 cnt_nodes += 1
 
-        tree = cls(structured_vals)
+        node = cls(structured_vals)
 
         if binary_search:
             def _repl_val(node):
                 node.val = next(cnt)
 
             cnt = count()
-            tree.traverse_map(_repl_val, Tree.INORDER)
+            node.traverse_map(_repl_val, cls.INORDER)
 
-        return tree
+        return node
 
 
 def inject_dependency(o):
