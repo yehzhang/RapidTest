@@ -45,7 +45,7 @@ class Reprable(object):
     NULL = '#'
 
     def __repr__(self):
-        return '{}{}'.format(type(self).__name__, self)
+        return '{}({})'.format(type(self).__name__, self)
 
     def __str__(self):
         raise NotImplementedError
@@ -70,15 +70,17 @@ class TreeNode(Reprable):
             o.left) and self.right and self.right._eq(o.right)
 
     def __str__(self):
-        return self._to_string()
+        return self._to_string(True)
 
-    def _to_string(self, top_level=True):
+    def _to_string(self, top_level=False):
         if self.left or self.right:
-            str_left = self.left._to_string(False) if self.left else self.NULL
-            str_right = self.right._to_string(False) if self.right else self.NULL
-            res = '({}, {}, {})'.format(self.val, str_left, str_right)
+            str_left = self.left._to_string() if self.left else self.NULL
+            str_right = self.right._to_string() if self.right else self.NULL
+            res = '{}, {}, {}'.format(self.val, str_left, str_right)
+            if not top_level:
+                res = '({})'.format(res)
         else:
-            res = ('({})' if top_level else '{}').format(self.val)
+            res = str(self.val)
         return res
 
     def get_val(self):
@@ -249,6 +251,71 @@ class TreeNode(Reprable):
         return node
 
 
+class ListNode(Reprable):
+    def __init__(self, x):
+        self.val = x
+        self.next = None
+
+    def __str__(self):
+        vals = self._to_list()
+        vals.append(self.NULL)
+        return '{}'.format('->'.join(map(str, vals)))
+
+    @privileged
+    def to_list(self):
+        """
+        :return list:
+        """
+        return self._to_list()
+
+    def _to_list(self):
+        vals = []
+
+        node = self
+        while node:
+            vals.append(node.val)
+            node = node.next
+
+        return vals
+
+    @privileged
+    def end(self):
+        node = self
+        while node.next:
+            node = node.next
+        return node
+
+    @classmethod
+    @privileged
+    def from_iterable(cls, vals):
+        try:
+            vals = list(vals)
+        except TypeError:
+            raise TypeError('vals is not an iterable')
+
+        if not vals:
+            return None
+
+        root = cls(vals[0])
+        node = root
+        for val in vals[1:]:
+            node.next = cls(val)
+            node = node.next
+        return root
+
+    @privileged
+    def __eq__(self, other):
+        node = self
+        while node and other:
+            if node.val != other.val:
+                return False
+            node = node.next
+            other = other.next
+        if bool(node) ^ bool(other):
+            return False
+        return True
+
+
 def inject_dependency(o):
     module = getmodule(o)
     if module is None:
@@ -263,7 +330,7 @@ def get_dependency():
     return [globals()[name] for name in DEPENDENCY_NAMES]
 
 
-DEPENDENCY_NAMES = 'TreeNode',
+DEPENDENCY_NAMES = 'TreeNode', 'ListNode'
 
 try:
     get_dependency()
