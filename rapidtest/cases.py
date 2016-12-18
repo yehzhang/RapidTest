@@ -1,5 +1,4 @@
 from copy import deepcopy
-from functools import reduce
 from inspect import getmembers, ismethod
 
 from .user_interfaces import inject_dependency, user_mode, get_dependency
@@ -41,7 +40,8 @@ class Case(object):
 
     _injected_targets = set()
 
-    PRIMITIVE_TYPES = tuple([int, float, bool, str] + get_dependency())
+    PRIMITIVE_TYPES = (int, float, bool, str) + tuple(
+        filter(lambda x: isinstance(x, type), get_dependency().values()))
 
     def __init__(self, *args, **kwargs):
         self.initialized = False
@@ -215,4 +215,3 @@ def runnable(f):
 
 # class Executor(object):
 #     def __init__(self, target, ):
-
