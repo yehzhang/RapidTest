@@ -13,6 +13,8 @@ class Test(object):
     :param type target: same as the keyword argument 'target' of the Case class
     :param kwargs: same as those of the Case class
     """
+    _context_stack = []
+
     EXIT_PASS = 0
     EXIT_FAIL = 1
     EXIT_PENDING = 2
@@ -37,8 +39,8 @@ class Test(object):
         self.close()
 
     def __enter__(self):
-        if Case.current_test:
-            raise RuntimeError('There is already a test running')
+        if Case.current_test is not None:
+            self._context_stack.append(Case.current_test)
         Case.current_test = self
         return self
 
@@ -46,6 +48,7 @@ class Test(object):
         Case.current_test = None
         self.run()
         self.close()
+        Case.current_test, = self._context_stack[-1:] or None,
 
     def __call__(self, *args, **kwargs):
         """Call self.add_generator() on behalf of user.
