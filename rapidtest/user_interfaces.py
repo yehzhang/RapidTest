@@ -15,7 +15,7 @@ _privilege_violation_msg = None
 def user_mode(msg=None):
     """Prevent running privileged functions in this context.
 
-    :param str msg: message to warn user about when privilege is violated
+    :param str msg: message to warn user about when calling privileged functions
     """
     global _kernel_mode, _privilege_violation_msg
     if not _kernel_mode:
@@ -138,25 +138,22 @@ class TreeNode(Reprable):
 
     @privileged
     def inorder(self):
-        """Return inorder traversal of nodes' values
-
-        :return [int]:
+        """
+        :return [int]: inorder traversal of nodes' values
         """
         return self.traverse_map(TreeNode.get_val, self.INORDER)
 
     @privileged
     def postorder(self):
-        """Return postorder traversal of nodes' values
-
-        :return [int]:
+        """
+        :return [int]: postorder traversal of nodes' values
         """
         return self.traverse_map(TreeNode.get_val, self.POSTORDER)
 
     @privileged
     def preorder(self):
-        """Return preorder traversal of nodes' values
-
-        :return [int]:
+        """
+        :return [int]: preorder traversal of nodes' values
         """
         return self.traverse_map(TreeNode.get_val, self.PREORDER)
 
@@ -232,7 +229,7 @@ class TreeNode(Reprable):
         density = random() * 0.9 + 0.1  # lower density -> higher tree
         while cnt_nodes < len(vals):
             # Prevent the tree from broken
-            if cnt_nones < cnt_nodes and not randbool(density):
+            if cnt_nones < cnt_nodes and randbool(1 - density):
                 structured_vals.append(None)
                 cnt_nones += 1
             else:
@@ -257,33 +254,30 @@ class ListNode(Reprable):
         self.next = None
 
     def __str__(self):
-        vals = self._to_list()
+        vals = list(self._gen())
         vals.append(self.NULL)
         return '{}'.format('->'.join(map(str, vals)))
 
     @privileged
-    def to_list(self):
+    def __iter__(self):
+        return self._gen()
+
+    def _gen(self):
         """
-        :return list:
+        :return generator: generator that traverses self
         """
-        return self._to_list()
-
-    def _to_list(self):
-        vals = []
-
-        node = self
-        while node:
-            vals.append(node.val)
-            node = node.next
-
-        return vals
+        while self:
+            yield self.val
+            self = self.next
 
     @privileged
     def end(self):
-        node = self
-        while node.next:
-            node = node.next
-        return node
+        """
+        :return ListNode: last node in the list
+        """
+        while self.next:
+            self = self.next
+        return self
 
     @classmethod
     @privileged
@@ -304,16 +298,13 @@ class ListNode(Reprable):
         return root
 
     @privileged
-    def __eq__(self, other):
-        node = self
-        while node and other:
-            if node.val != other.val:
+    def __eq__(self, o):
+        while self and o:
+            if self.val != o.val:
                 return False
-            node = node.next
-            other = other.next
-        if bool(node) ^ bool(other):
-            return False
-        return True
+            self = self.next
+            o = o.next
+        return self is o is None
 
 
 def inject_dependency(o):
@@ -335,4 +326,4 @@ DEPENDENCY_NAMES = 'TreeNode', 'ListNode'
 try:
     get_dependency()
 except Exception:
-    assert False, 'Missing dependency'
+    raise AssertionError('Missing dependency')

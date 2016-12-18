@@ -54,13 +54,13 @@ class Test(object):
         #     'Check the method signature of add_generator to see what arguments are taken. ')
 
         if len(args) == 1 and callable(args[0]) and not kwargs:
-            # Used like @self
+            # Called like @self
             [f] = args
             self.add_generator(f)
             return f
 
         else:
-            # Used like @self(100), @self(repeat=100), etc
+            # Called like @self(100), @self(repeat=100), etc
             def _d(f):
                 self.add_generator(f, *args, **kwargs)
                 return f
@@ -69,7 +69,7 @@ class Test(object):
 
     def add_generator(self, generator, repeat=100):
         """
-        :param generator: a test-generating function that takes an index and returns a case
+        :param callable generator: a test-generating function that takes an index and returns a case
         :param int repeat: how many times to run the test-generating function, if provided
         """
         if not callable(generator):
@@ -77,7 +77,6 @@ class Test(object):
         if not isinstance(repeat, int):
             raise TypeError('repeat is not an integer')
         if repeat > 0:
-            self.separate()
             self._add_generator(generator(i) for i in range(repeat))
 
     def add_case(self, case):
@@ -90,17 +89,16 @@ class Test(object):
         self._current_session.append(case)
 
     def add_cases(self, cases):
-        if isinstance(cases, (list, tuple)):
-            # not a generator. Do not lazy-evaluate for validating params immediately
-            for case in cases:
-                self.add_case(case)
-        else:
-            # probably a generator, using lazy-evaluation
-            self._add_generator(iter(cases))
-            self.separate()
+        """
+        :param iterable cases:
+        """
+        for case in cases:
+            self.add_case(case)
 
     def _add_generator(self, gen):
         """Add a iterable of cases which are lazy-evaluated."""
+        self.separate()
+
         gen_cases = (self._initialize(case) for case in gen)
         self._pending_sessions.append(iter(gen_cases))
 
@@ -109,10 +107,10 @@ class Test(object):
         self._current_session = None
 
     def _initialize(self, case):
-        """Called to initialize a case."""
+        """Called to _initialize a case."""
         if not isinstance(case, Case):
             raise TypeError('case is not of type Case')
-        case.initialize(self.bound_params)
+        case._initialize(self.bound_params)
         return case
 
     def run(self):
@@ -139,7 +137,7 @@ class Test(object):
         """
         :param iterator cases:
         """
-        has_print = False
+        has_printed = False
 
         try:
             while True:
@@ -150,7 +148,7 @@ class Test(object):
                 except Exception:
                     print('?', end='')
                     stdout.flush()
-                    has_print = True
+                    has_printed = True
 
                     self.unborn_cases += 1
                     raise
@@ -163,35 +161,41 @@ class Test(object):
                     symbol = '.' if success else 'x'
                     print(symbol, end='')
                     stdout.flush()
-                    has_print = True
+                    has_printed = True
 
                     (self.passed_cases if success else self.failed_cases).append(case)
 
                 if not success:
                     raise ValueError(str(case))
         finally:
-            if has_print:
+            if has_printed:
                 print()
                 stdout.flush()
 
     def close(self):
         if not self.closed:
-            self.print_stats()
+            self.print_summary()
             self.closed = True
 
-    def print_stats(self):
-        if self.unborn_cases:
-            return
+    def print_summary(self):
+        stats = self._summary()
+        if stats:
+            print(stats)
+            stdout.flush()
 
-        try:
-            cnt_pending_cases = sum(map(super_len, self._pending_sessions))
-        except Exception:
-            return
-        if cnt_pending_cases:
-            print('Leaving {} pending cases'.format(cnt_pending_cases))
-        elif self.passed_cases:
-            if not self.failed_cases:
-                print('Passed all {} test cases'.format(len(self.passed_cases)))
-        else:
-            print('No case was tested')
-        stdout.flush()
+    def _summary(self):
+        """
+        :return str:
+        """
+        if not self.unborn_cases:
+            try:
+                cnt_pending_cases = sum(map(super_len, self._pending_sessions))
+            except Exception as e:
+                return 'Exception raised in pending cases: {}'.format(e)
+            if cnt_pending_cases:
+                return 'Leaving {} pending cases'.format(cnt_pending_cases)
+            elif self.passed_cases:
+                if not self.failed_cases:
+                    return 'Passed all {} test cases'.format(len(self.passed_cases))
+            else:
+                return 'No case was tested'

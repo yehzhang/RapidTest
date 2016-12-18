@@ -10,49 +10,48 @@ MAX_INT = 2 ** 31 - 1
 MIN_INT = -(2 ** 31)
 
 
-def rec_list(o):
-    return rec_cast(list, o)
+def rec_list(x):
+    return rec_cast(list, x)
 
 
-def rec_tuple(o):
-    return rec_cast(tuple, o)
+def rec_tuple(x):
+    return rec_cast(tuple, x)
 
 
-def rec_cast(f, o):
-    if isinstance(o, (int, float, bool, str)):
-        return o
+def rec_cast(f, x):
+    if isinstance(x, (int, float, bool, str)):
+        return x
     try:
-        return f(rec_cast(f, i) for i in o)
+        return f(rec_cast(f, i) for i in x)
     except TypeError:
-        return o
+        return x
 
 
 unordered = sorted
 
 
-def rec_unordered(o):
-    return rec_cast(sorted, o)
+def rec_unordered(x):
+    return rec_cast(unordered, x)
 
 
-def super_len(o):
-    """May loop forever if o is an infinite generator."""
-    if hasattr(o, '__len__'):
-        return len(o)
+def super_len(x):
+    """May loop forever if x is an infinite generator."""
+    if hasattr(x, '__len__'):
+        return len(x)
 
-    if is_iterable(o):
-        o = iter(o)
+    if hasattr(x, '__iter__'):
         for i in count():
             try:
-                next(o)
+                next(x)
             except StopIteration:
                 return i
 
     return 0
 
 
-def is_iterable(o):
+def is_iterable(x):
     try:
-        iter(o)
+        iter(x)
     except Exception:
         return False
     return True

@@ -20,7 +20,8 @@ class Case(object):
         TODO Collect could not be placed at the beginning
     :param type target: TODO support other languages
     :param bool operation: whether the args are arguments or operations. Default to False
-    :param function post_proc: a post-processing function or a list of such functions
+    :param function post_proc: a post-processing function that takes an output of a solution and
+        transforms to another, or a list of such functions to be applied from left to right
     :param any result: intended output of a solution given args, or a target that produces the
         intended output
     :param bool|int|[int] in_place: whether output is in-place modified arguments or returned
@@ -91,8 +92,14 @@ class Case(object):
             if not all(map(callable, post_proc)):
                 raise TypeError('some post-processing is not callable')
         else:
-            raise TypeError('post_proc is not a function or an iterable of functions')
-        return reduce(lambda x, y: lambda z: y(x(z)), post_proc)
+            raise TypeError('post_proc is not of type callable or iterable')
+
+        def _reduce_post_proc(x):
+            for f in post_proc:
+                x = f(x)
+            return x
+
+        return _reduce_post_proc
 
     @classmethod
     def process_in_place(cls, in_place):
@@ -106,15 +113,16 @@ class Case(object):
                 return lambda args: args[0] if len(args) == 1 else args
         elif isinstance(in_place, int):
             return lambda args: _safe_get(args, in_place)
-        else:
+        elif is_iterable(in_place):
             in_place = list(in_place)
             if not all(isinstance(i, int) for i in in_place):
                 raise TypeError('in_place is not an iterable of integers')
             return lambda args: [_safe_get(args, i) for i in in_place]
+        else:
+            raise TypeError('in_place is not of type bool, int or iterable')
 
-    def initialize(self, default_params=None):
+    def _initialize(self, default_params=None):
         """Initialize parameters of this case.
-        This method is called in Test. No need to call again.
 
         :param dict default_params: already processed test parameters, overridden by parameters
             passed in constructor
@@ -147,7 +155,7 @@ class Case(object):
         if self.target_result is _sentinel:
             # Not run yet
             if not self.initialized:
-                self.initialize()
+                self._initialize()
             self.target_result = self._call(self.target_method, self.args)
         return self.target_result == self.asserted_result
 
