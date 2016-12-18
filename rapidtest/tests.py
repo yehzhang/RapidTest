@@ -13,6 +13,12 @@ class Test(object):
     :param type target: same as the keyword argument 'target' of the Case class
     :param kwargs: same as those of the Case class
     """
+    EXIT_PASS = 0
+    EXIT_FAIL = 1
+    EXIT_PENDING = 2
+    EXIT_EMPTY = 3
+    EXIT_GEN_ERR = 4
+    EXIT_UNKNOWN = -1
 
     def __init__(self, target=None, **kwargs):
         self._current_session = None
@@ -178,24 +184,29 @@ class Test(object):
             self.closed = True
 
     def print_summary(self):
-        stats = self._summary()
-        if stats:
-            print(stats)
+        _, msg = self.summary()
+        if msg:
+            print(msg)
             stdout.flush()
 
-    def _summary(self):
+    # noinspection PyUnreachableCode
+    def summary(self):
         """
-        :return str:
+        :return (int, str): exit code and description
         """
-        if not self.unborn_cases:
-            try:
-                cnt_pending_cases = sum(map(super_len, self._pending_sessions))
-            except Exception as e:
-                return 'Exception raised in pending cases: {}'.format(e)
-            if cnt_pending_cases:
-                return 'Leaving {} pending cases'.format(cnt_pending_cases)
-            elif self.passed_cases:
-                if not self.failed_cases:
-                    return 'Passed all {} test cases'.format(len(self.passed_cases))
+        if self.unborn_cases:
+            return self.EXIT_GEN_ERR, None
+        try:
+            cnt_pending_cases = sum(map(super_len, self._pending_sessions))
+        except Exception as e:
+            return self.EXIT_GEN_ERR, 'Exception raised in pending cases: {}'.format(e)
+        if cnt_pending_cases:
+            return self.EXIT_PENDING, 'Leaving {} pending cases'.format(cnt_pending_cases)
+        elif self.passed_cases:
+            if self.failed_cases:
+                return self.EXIT_FAIL, None
             else:
-                return 'No case was tested'
+                return self.EXIT_PASS, 'Passed all {} test cases'.format(len(self.passed_cases))
+        else:
+            return self.EXIT_EMPTY, 'No case was tested'
+        return self.EXIT_UNKNOWN, None
