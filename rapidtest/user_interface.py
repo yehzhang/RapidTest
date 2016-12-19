@@ -26,6 +26,7 @@ def user_mode(msg=None):
 
 def privileged(f):
     """Mark a function as privileged."""
+
     def _f(*args, **kwargs):
         if not _kernel_mode:
             msg = 'Using this feature is unsupported' if _privilege_violation_msg is None else \
@@ -59,6 +60,7 @@ def get_dependency():
             obj = getattr(module, obj_name)
             dependency[obj_name] = obj
     return dependency
+
 
 DEPENDENCY_NAMES = {
     '.data_structures': ['TreeNode', 'ListNode'],

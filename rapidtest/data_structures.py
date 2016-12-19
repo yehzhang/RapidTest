@@ -3,7 +3,7 @@ from itertools import count
 from json import loads
 from random import random
 
-from .user_interfaces import privileged
+from .user_interface import privileged
 from .utils import nop, randbool, randints
 
 
