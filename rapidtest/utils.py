@@ -11,6 +11,8 @@ if sys.version_info.major < 3:
 MAX_INT = 2 ** 31 - 1
 MIN_INT = -(2 ** 31)
 
+PRIMITIVE_TYPES = int, float, bool, str
+
 
 def rec_list(x):
     return rec_cast(list, x)
@@ -21,19 +23,15 @@ def rec_tuple(x):
 
 
 def rec_cast(f, x):
-    if isinstance(x, (int, float, bool, str)):
-        return x
-    try:
+    if not isinstance(x, PRIMITIVE_TYPES) and is_iterable(x):
         return f(rec_cast(f, i) for i in x)
-    except TypeError:
-        return x
+    return x
 
 
 def unordered(x):
-    try:
+    if is_iterable(x):
         return sorted(x)
-    except TypeError:
-        return x
+    return x
 
 
 def rec_unordered(x):
@@ -80,6 +78,7 @@ def identity(x):
     return x
 
 
+# noinspection PyUnusedLocal
 def nop(*args, **kwargs):
     pass
 
@@ -133,7 +132,10 @@ def randlist(count, alphabet, unique=False):
 
 
 class OneTimeSetProperty(object):
-    """Property that can only be changed once."""
+    """Property that can only be changed once.
+    If `default` is not specified and this property is never set, getting it will cause an
+    Exception.
+    """
     cnt_props = 0
 
     def __init__(self, default=sentinel):
@@ -145,16 +147,16 @@ class OneTimeSetProperty(object):
     def __get__(self, instance, owner):
         x = getattr(instance, self.name, self.default)
         if x is sentinel:
-            raise AttributeError('attribute is not set yet')
+            raise AttributeError('Property is not set yet')
         return x
 
     def __set__(self, instance, value):
         if hasattr(instance, self.name):
-            raise AttributeError('cannot reset attribute')
+            raise AttributeError('Cannot reset attribute')
         setattr(instance, self.name, value)
 
     def __delete__(self, instance):
-        raise AttributeError('cannot delete attribute')
+        raise AttributeError('Cannot delete attribute')
 
 
 class Sentinel(object):
@@ -181,7 +183,8 @@ def natural_join(last_sep, strs):
     strs[-1] = '{} {}'.format(last_sep, strs[-1])
     return ', '.join(strs)
 
+
 def powerset(iterable):
     """powerset([1,2,3]) --> () (1,) (2,) (3,) (1,2) (1,3) (2,3) (1,2,3)"""
     s = list(iterable)
-    return chain.from_iterable(combinations(s, r) for r in range(len(s)+1))
+    return chain.from_iterable(combinations(s, r) for r in range(len(s) + 1))

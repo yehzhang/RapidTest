@@ -3,8 +3,8 @@ from __future__ import print_function
 from collections import deque
 from sys import stdout
 
-from .utils import super_len
 from .cases import Case
+from .utils import super_len
 
 
 class Test(object):
@@ -93,8 +93,9 @@ class Test(object):
         self._initialize(case)
 
         if self._current_session is None:
-            s = self._current_session = []
-            self._pending_sessions.append(iter(s))
+            self._current_session = []
+            # noinspection PyTypeChecker
+            self._pending_sessions.append(iter(self._current_session))
         self._current_session.append(case)
 
     def add_cases(self, cases):
