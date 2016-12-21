@@ -2,7 +2,9 @@ from copy import deepcopy
 from inspect import getmembers, ismethod
 
 from .user_interface import inject_dependency, get_dependency
-from .utils import is_iterable, identity, OneTimeSetProperty, sentinel, PRIMITIVE_TYPES as P_TYPES
+from .utils import is_iterable, identity, OneTimeSetProperty, sentinel, PRIMITIVE_TYPES as \
+    P_TYPES, \
+    indent
 
 
 class Runnable(object):
@@ -26,7 +28,7 @@ class Runnable(object):
         :param callable f:
         """
         cls._cnt_subclasses += 1
-        cls_name = '_{}_{}'.format(cls.__name__, cls._cnt_subclasses)
+        cls_name = '_{}_subclass_{}'.format(cls.__name__, cls._cnt_subclasses)
         NewClass = type(cls_name, (cls,), {
             'ENTRY_POINT_NAME': f.__name__,
             f.__name__:         staticmethod(f),
@@ -35,19 +37,18 @@ class Runnable(object):
 
 
 class Executor(object):
-    """Provide strategies for executing operations."""
+    """Provide a strategies for lazy-evaluating operations.
+
+    :param [OperationStub] operation_stubs:
+    :param callable post_proc:
+    :param callable in_place_selector:
+    """
     _injected_targets = set()
 
     PRIMITIVE_TYPES = P_TYPES + tuple(
         filter(lambda x: isinstance(x, type), get_dependency().values()))
 
     def __init__(self, init_args, operation_stubs, post_proc=None, in_place_selector=None):
-        """TODO
-
-        :param [OperationStub] operation_stubs:
-        :param callable post_proc:
-        :param callable in_place_selector:
-        """
         self.init_args = init_args
         self.operation_stubs = operation_stubs
         self.post_proc = post_proc or identity
@@ -111,8 +112,8 @@ class Executor(object):
             methods = [(name, f) for name, f in methods if not name.startswith('_')]
             if len(methods) != 1:
                 raise RuntimeError(
-                    'Cannot find the target method. You may specify a list of operations as '
-                    'arguments to Case if there are multiple methods to be called, or prepend all '
+                    'Cannot find the target method. You may specify operations as arguments to '
+                    'Case if there are multiple methods to be called, or prepend all '
                     'names of private methods with underscores.')
             [method] = methods
         return method
@@ -140,6 +141,15 @@ class OperationStub(object):
             self.args = args
         if collect is not sentinel:
             self.collect = collect
+
+    def __eq__(self, other):
+        return isinstance(other, type(
+            self)) and self.name == other.name and self.args == other.args and self.collect == \
+                                                                               other.collect
+
+    def __str__(self):
+        return '{}({}) -> {}'.format(self.name, OperationOutput.join_repr(self.args),
+                                     '?' if self.collect else '#')
 
 
 class Output(object):
@@ -178,7 +188,7 @@ class OperationOutput(Output):
             self.result = None
 
     def __str__(self):
-        repr_args = ', '.join(map(repr, self.args))
+        repr_args = self.join_repr(self.args)
 
         if self.collect:
             if self.asserted_val is sentinel:
@@ -201,6 +211,10 @@ class OperationOutput(Output):
         self.asserted_val = asserted_val
         self.result = val == self.asserted_val
         return self.result
+
+    @staticmethod
+    def join_repr(strs):
+        return ', '.join(map(repr, strs))
 
 
 class ExecutionOutput(Output):
@@ -234,7 +248,7 @@ class ExecutionOutput(Output):
 
         if self.result is None:
             # Outputs were not checked. Display the first few outputs
-            entries.append('Returned values have not been checked completely')
+            entries.append('Returned values have not been completely checked')
 
             # Populate _checked_outputs with entries to be displayed
             for _ in zip(range(self.MAX_STR_ENTS), self):
@@ -247,7 +261,8 @@ class ExecutionOutput(Output):
             # Outputs were checked and has no error
             entries.append('Returned values of operations equal asserted values')
 
-        return '\n'.join(map(str, entries))
+        entries = [indent(e, 0 if i == 0 else 1) for i, e in enumerate(entries)]
+        return '\n'.join(entries)
 
     def __iter__(self):
         """Iterate through all outputs."""

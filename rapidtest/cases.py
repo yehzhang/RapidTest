@@ -1,5 +1,6 @@
-from rapidtest.user_interface import user_mode
+from .data_structures import Reprable
 from .executors import Executor, OperationStub, Runnable
+from .user_interface import user_mode
 from .utils import is_iterable, identity, natural_join, nop, is_sequence, sentinel
 
 
@@ -59,12 +60,11 @@ class Case(object):
     def __init__(self, *args, **kwargs):
         self.initialized = False
 
-        self.params = self.process_params(**kwargs)
-
-        self.operation = kwargs.get(self.BIND_OPERATION, False)
-        self.init_args, self.operation_stubs, self.results = self.process_args(args, self.operation)
+        self.args = args
         self.executor = None
         self.execution_output = None
+
+        self.params = self.process_params(**kwargs)
 
         if self.current_test:
             self.current_test.add_case(self)
@@ -144,7 +144,6 @@ class Case(object):
         """
         init_args = []
         stubs = []
-        results = []
 
         if operation:
             def push_stub():
@@ -163,7 +162,7 @@ class Case(object):
                 return ()
 
             def exec_empty():
-                raise ValueError('args is empty')
+                raise ValueError('No operation is specified')
 
             def handle_init_args():
                 init_args[:] = item
@@ -177,7 +176,6 @@ class Case(object):
 
             def handle_result():
                 curr_stub[0].collect = True
-                results.append(item)
                 push_stub()
 
             def handle_args():
@@ -234,10 +232,12 @@ class Case(object):
                 handler()
 
             if not stubs:
-                raise ValueError('Operations contains no method call')
+                raise ValueError('Args contains no method call')
 
         else:
             stubs.append(OperationStub(None, args, True))
+
+        results = [item for item in args if isinstance(item, Result)]
 
         return tuple(init_args), stubs, results
 
@@ -260,28 +260,37 @@ class Case(object):
             raise RuntimeError('Target was not specified in Test nor Case')
 
         # Create executor
+        operation = self.params.get(self.BIND_OPERATION, False)
+        init_args, stubs, result_objects = self.process_args(self.args, operation)
         post_proc = self.params.get(self.BIND_POST_PROCESSING)
         in_place_selector = self.params.get(self.BIND_IN_PLACE)
-        self.executor = Executor(self.init_args, self.operation_stubs, post_proc, in_place_selector)
+        self.executor = Executor(init_args, stubs, post_proc, in_place_selector)
 
         # Validate parameters
         bound_result = self.params.get(self.BIND_RESULT, sentinel)
-        if self.results and bound_result is not sentinel:
-            raise RuntimeError('Both Result() object and result= keyword is used')
-        if not self.results and bound_result is sentinel:
-            raise RuntimeError('Neither Result() object nor result= keyword is used')
-        # Assert exactly one of Result() or result= is used
+        if result_objects and bound_result is not sentinel:
+            raise RuntimeError('Both Result() object and result= keyword is specified')
         if isinstance(bound_result, type):
             # Used result generator
             vals = self.executor.execute(bound_result).get_val()
-        elif self.operation:
+        elif operation:
             # Used Result() objects.
             if bound_result is not sentinel:
-                raise RuntimeError('result= keyword is used when operation is True')
+                raise RuntimeError(
+                    'result= keyword can only be a target when operation is True. You may want to '
+                    'use Result() object')
+            if not result_objects:
+                raise RuntimeError('Result() object is not specified when operation is True')
             # Turn them into plain values
-            vals = [self.executor.normalize_raw_output(r.val) for r in self.results]
+            vals = [self.executor.normalize_raw_output(r.val) for r in result_objects]
         else:
             # Used a plain value
+            if result_objects:
+                raise RuntimeError(
+                    'Result() object is not accepted when operation is False. Please use result= '
+                    'keyword')
+            if bound_result is sentinel:
+                raise RuntimeError('result= keyword is not specified when operation is False')
             vals = [self.executor.normalize_raw_output(bound_result)]
         self.asserted_output_vals = vals
 
@@ -296,9 +305,12 @@ class Case(object):
         return self.execution_output.result
 
 
-class Result(object):
+class Result(Reprable):
     def __init__(self, val):
         self.val = val
 
     def __str__(self):
-        return '<Result object>'
+        return str(self.val)
+
+    def __eq__(self, other):
+        return isinstance(other, type(self)) and self.val == other.val

@@ -4,11 +4,10 @@ from collections import deque
 from sys import stdout
 
 from .cases import Case
-from .utils import super_len
 
 
 class Test(object):
-    """Manage cases, run them, and print results.
+    """Manage cases, test them, and print the result of each case.
 
     :param type target: same as the keyword argument 'target' of the Case class
     :param kwargs: same as those of the Case class
@@ -65,20 +64,21 @@ class Test(object):
         if len(args) == 1 and callable(args[0]) and not kwargs:
             # Called like @self
             [f] = args
-            self.add_generator(f)
+            self.add_func(f)
             return f
 
         else:
             # Called like @self(100), @self(repeat=100), etc
             def _d(f):
-                self.add_generator(f, *args, **kwargs)
+                self.add_func(f, *args, **kwargs)
                 return f
 
             return _d
 
-    def add_generator(self, generator, repeat=100):
+    def add_func(self, generator, repeat=100):
         """
-        :param callable generator: a test-generating function that takes an index and returns a case
+        :param callable generator: a test-case-generating function that takes an index and
+            returns a case
         :param int repeat: how many times to run the test-generating function, if provided
         """
         if not callable(generator):
@@ -130,6 +130,7 @@ class Test(object):
     def _run_sessions(self):
         """Cases are already initialized at this time."""
         self.closed = False
+        self.separate()
 
         while self._pending_sessions:
             session = self._pending_sessions.popleft()
@@ -138,6 +139,7 @@ class Test(object):
             try:
                 self._run_cases(session)
             except Exception:
+                # If case generator raises an exception, it is stopped. No need to recycle it
                 if self.unborn_cases == last_unborn_cases:
                     # iterator did not raise an exception. It is the case.run()
                     self._pending_sessions.appendleft(session)
@@ -164,7 +166,6 @@ class Test(object):
                     raise
 
                 success = False
-
                 try:
                     success = case.run()
                 finally:
@@ -176,7 +177,7 @@ class Test(object):
                     (self.passed_cases if success else self.failed_cases).append(case)
 
                 if not success:
-                    raise ValueError(str(case))
+                    raise ValueError('Case output is not equal to result: {}'.format(case))
         finally:
             if has_printed:
                 print()
@@ -193,7 +194,6 @@ class Test(object):
             print(msg)
             stdout.flush()
 
-    # noinspection PyUnreachableCode
     def summary(self):
         """
         :return (int, str): exit code and description
@@ -201,16 +201,18 @@ class Test(object):
         if self.unborn_cases:
             return self.EXIT_GEN_ERR, None
         try:
-            cnt_pending_cases = sum(map(super_len, self._pending_sessions))
+            cnt_pending_cases = 0
+            for i in range(len(self._pending_sessions)):
+                s = list(self._pending_sessions.popleft())
+                cnt_pending_cases += len(s)
+                self._pending_sessions.append(iter(s))
         except Exception as e:
             return self.EXIT_GEN_ERR, 'Exception raised in pending cases: {}'.format(e)
         if cnt_pending_cases:
             return self.EXIT_PENDING, 'Leaving {} pending cases'.format(cnt_pending_cases)
-        elif self.passed_cases:
-            if self.failed_cases:
-                return self.EXIT_FAIL, None
-            else:
-                return self.EXIT_PASS, 'Passed all {} test cases'.format(len(self.passed_cases))
-        else:
-            return self.EXIT_EMPTY, 'No case was tested'
-        return self.EXIT_UNKNOWN, None
+        if self.failed_cases:
+            return self.EXIT_FAIL, None
+        if self.passed_cases:
+            return self.EXIT_PASS, 'Passed all {} test cases'.format(len(self.passed_cases))
+        return self.EXIT_EMPTY, 'No case was tested'
+        # return self.EXIT_UNKNOWN, None
