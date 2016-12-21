@@ -19,9 +19,11 @@ def user_mode(msg=None):
     if msg is not None:
         _privilege_violation_msg = msg
     _kernel_mode = False
-    yield
-    _kernel_mode = True
-    _privilege_violation_msg = None
+    try:
+        yield
+    finally:
+        _kernel_mode = True
+        _privilege_violation_msg = None
 
 
 def privileged(f):
@@ -66,8 +68,3 @@ DEPENDENCY_NAMES = {
     '.data_structures': ['TreeNode', 'ListNode'],
     # __name__: [],
 }
-
-try:
-    get_dependency()
-except Exception:
-    raise AssertionError('Invalid dependency name')
