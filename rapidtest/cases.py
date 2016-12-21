@@ -1,22 +1,49 @@
-from .executors import Executor
-from .utils import is_iterable, identity, sentinel
+from rapidtest.user_interface import user_mode
+from .executors import Executor, OperationStub, Runnable
+from .utils import is_iterable, identity, natural_join, nop, is_sequence, sentinel
 
 
 class Case(object):
-    """Contains a set of basic information needed to test the target.
+    """Contains a set of basic information required to test the target. All of the kwargs below
+    could be specified in `Test` constructor.
 
-    :param args: see `Executor.process_args()`
-    :param callable|type target: a function that produces output when called with args or a class
-        that produces output.
+    :param args: `args` has two formats: arguments or a sequence of operations.
+
+        When the first format is used, args will be passed to `target`, and its returned value will
+        be compared against `result`.
+
+        When the second format is used, operations will be executed one by one.
+
+        operations := operation, operations
+        operation := method_name[, arguments][, result]
+
+        method_name is name of the method in target to be called.
+
+        arguments is a list of arguments to be passed to the method. If the method does not take
+        arguments, this could be omitted.
+
+        result is a `rapidtest.Result()` object specifying the asserted returned value of calling
+        the method. If an operation has no such object, the returned value is discarded.
+
+    :param bool operation: whether args are of the second format or the first one. Default to
+        use the first format.
+
+    :param callable target: a function or class to be tested. If it is a class and `operation` is
+        False, the only public method will be called, if any.
         # TODO support other languages
-    :param bool operation: whether the args are arguments or operations. Default to False
-    :param function post_proc: a post-processing function that takes an output of a solution and
-        transforms to another, or a list of such functions to be applied from left to right
-    :param any result: intended output of a solution given args, or a target that produces the
-        intended output
-    :param bool|int|[int] in_place: whether output is in-place modified arguments or returned
-        value. If in_place is an integer or a list of integers, only arguments on the corresponding
-        indices are gathered.
+
+    :param callable|iterable post_proc: a post-processing function that takes a returned value and
+        processes it, or an sequence of such functions to be applied from left to right
+
+    :param any result: if this parameter is a class or function, it will be treated as another
+        `target`, with its output being compared.
+
+        Otherwise, this parameter could only be used when `operation` is False, which means
+        `result` is the asserted returned value of `target`.
+
+    :param bool|int|[int] in_place: whether output should be in-place modified arguments or
+        returned value. If in_place is an integer or a list of integers, only arguments on the
+        corresponding indices are collected.
     """
 
     current_test = None
@@ -32,17 +59,18 @@ class Case(object):
     def __init__(self, *args, **kwargs):
         self.initialized = False
 
-        self.args = args
-        self.executor = Executor(args, kwargs.get(self.BIND_OPERATION, False))
-        self.target_result = None
-
         self.params = self.process_params(**kwargs)
+
+        self.operation = kwargs.get(self.BIND_OPERATION, False)
+        self.init_args, self.operation_stubs, self.results = self.process_args(args, self.operation)
+        self.executor = None
+        self.execution_output = None
 
         if self.current_test:
             self.current_test.add_case(self)
 
     def __str__(self):
-        return 'Case is not run yet' if self.target_result is None else str(self.target_result)
+        return str(self.execution_output) if self.execution_output else 'Case is not run yet'
 
     @classmethod
     def process_params(cls, **kwargs):
@@ -51,6 +79,15 @@ class Case(object):
             invalid_kwargs = ', '.join(map(repr, invalid_kwargs))
             raise TypeError('Test parameters do not take {}'.format(invalid_kwargs))
         return {k: getattr(cls, 'process_' + k, identity)(v) for k, v in kwargs.items()}
+
+    @classmethod
+    def process_target(cls, target):
+        if not isinstance(target, type):
+            if callable(target):
+                target = Runnable.ClassFactory(target)
+            else:
+                raise ValueError('Target is not a class nor function')
+        return target
 
     @classmethod
     def process_post_proc(cls, post_proc):
@@ -69,6 +106,13 @@ class Case(object):
             return x
 
         return _reduce_post_proc
+
+    @classmethod
+    def process_result(cls, result):
+        if callable(result):
+            # callable result is treated like target
+            result = cls.process_target(result)
+        return result
 
     @classmethod
     def process_in_place(cls, in_place):
@@ -90,6 +134,113 @@ class Case(object):
         else:
             raise TypeError('In_place is not of type bool, int or iterable')
 
+    @classmethod
+    def process_args(cls, args, operation):
+        """
+        :return (any, ...), [OperationStub], bool: the first returned value is arguments
+            to be passed to the constructor of target. The second returned value is a list of
+            `OperationStub`. The third returned value is a bool indicating whether `collect` is
+            used in the operations or not
+        """
+        init_args = []
+        stubs = []
+        results = []
+
+        if operation:
+            def push_stub():
+                stubs.append(curr_stub[0])
+                curr_stub[0] = OperationStub()
+
+            def get_symbols():
+                if isinstance(item, Result):
+                    return RSLT,
+                if isinstance(item, str):
+                    return NAME, NEXT_NAME
+                if is_sequence(item):
+                    return INIT_ARGS, ARGS
+                if item is END:
+                    return END,
+                return ()
+
+            def exec_empty():
+                raise ValueError('args is empty')
+
+            def handle_init_args():
+                init_args[:] = item
+
+            def handle_next_name():
+                push_stub()
+                handle_name()
+
+            def handle_name():
+                curr_stub[0].name = item
+
+            def handle_result():
+                curr_stub[0].collect = True
+                results.append(item)
+                push_stub()
+
+            def handle_args():
+                curr_stub[0].args = item
+
+            END = object()
+            NAME = 'name'
+            NEXT_NAME = 'next_name'
+            INIT_ARGS = 'init_args'
+            ARGS = 'args'
+            RSLT = 'result'
+            TRANS = {
+                (INIT_ARGS, NAME):       ((NAME,), (NEXT_NAME, ARGS, RSLT), exec_empty),
+                (NAME,):                 ((NEXT_NAME, ARGS, RSLT), nop),
+                (NEXT_NAME, ARGS, RSLT): (
+                    (NEXT_NAME, ARGS, RSLT), (NEXT_NAME, RSLT), (NAME,), push_stub),
+                (NEXT_NAME, RSLT):       ((NEXT_NAME, ARGS, RSLT), (NAME,), push_stub),
+            }
+
+            state = INIT_ARGS, NAME
+            curr_stub = [OperationStub()]
+            args = list(args)
+            args.append(END)
+
+            for item in args:
+                next_states = TRANS.get(state)
+                assert next_states is not None, 'Invalid state'
+
+                # assert at most one of symbols is in state
+                for s in get_symbols():
+                    if s is END:
+                        handler = next_states[-1]
+                        break
+                    try:
+                        idx_next_state = state.index(s)
+                    except ValueError:
+                        pass
+                    else:
+                        handler = locals()['handle_' + s]
+                        state = next_states[idx_next_state]
+                        break
+                else:
+                    # Symbols are not accepted in current state
+                    REPRS = {
+                        NAME:      'method name',
+                        NEXT_NAME: 'method name',
+                        INIT_ARGS: '__init__ args',
+                        ARGS:      'arguments',
+                        RSLT:      'result object',
+                    }
+                    expected = natural_join('or', map(REPRS.get, state))
+                    raise ValueError('expected {}, got {}'.format(expected, repr(item)))
+
+                handler()
+
+            if not stubs:
+                raise ValueError('Operations contains no method call')
+
+        else:
+            stubs.append(OperationStub(None, args, True))
+
+        return tuple(init_args), stubs, results
+
     def _initialize(self, default_params=None):
         """Initialize parameters of this case.
 
@@ -103,25 +254,51 @@ class Case(object):
         params.update(self.params)
         self.params = params
 
-        target = self.params.get(self.BIND_TARGET_CLASS, None)
-        if target is None:
+        # Validate target
+        self.target = self.params.get(self.BIND_TARGET_CLASS)
+        if self.target is None:
             raise RuntimeError('Target was not specified in Test nor Case')
+
+        # Create executor
         post_proc = self.params.get(self.BIND_POST_PROCESSING)
         in_place_selector = self.params.get(self.BIND_IN_PLACE)
-        self.executor.initialize(target, post_proc, in_place_selector)
+        self.executor = Executor(self.init_args, self.operation_stubs, post_proc, in_place_selector)
 
-        result = self.params.get(self.BIND_RESULT, sentinel)
-        if result is sentinel:
-            raise RuntimeError('Result was not specified')
-        if callable(result):
-            self.asserted_vals = self.executor.run(result)
+        # Validate parameters
+        bound_result = self.params.get(self.BIND_RESULT, sentinel)
+        if self.results and bound_result is not sentinel:
+            raise RuntimeError('Both Result() object and result= keyword is used')
+        if not self.results and bound_result is sentinel:
+            raise RuntimeError('Neither Result() object nor result= keyword is used')
+        # Assert exactly one of Result() or result= is used
+        if isinstance(bound_result, type):
+            # Used result generator
+            vals = self.executor.execute(bound_result).get_val()
+        elif self.operation:
+            # Used Result() objects.
+            if bound_result is not sentinel:
+                raise RuntimeError('result= keyword is used when operation is True')
+            # Turn them into plain values
+            vals = [self.executor.normalize_raw_output(r.val) for r in self.results]
         else:
-            self.asserted_vals = self.executor.normalize_raw_output(result)
+            # Used a plain value
+            vals = [self.executor.normalize_raw_output(bound_result)]
+        self.asserted_output_vals = vals
 
         self.initialized = True
 
     def run(self):
-        if self.target_result is None:
+        if self.execution_output is None:
             self._initialize()
-            self.target_result = self.executor.run()
-        return self.target_result.check(self.asserted_vals)
+            with user_mode('Calling this method is unsupported when judging'):
+                self.execution_output = self.executor.execute(self.target)
+                self.execution_output.check(self.asserted_output_vals)
+        return self.execution_output.result
+
+
+class Result(object):
+    def __init__(self, val):
+        self.val = val
+
+    def __str__(self):
+        return '<Result object>'
