@@ -1,5 +1,6 @@
 import string
 import sys
+from collections import Sequence
 from itertools import count, chain, combinations
 from random import randint, random, sample, choice
 
@@ -7,6 +8,8 @@ sentinel = object()
 
 if sys.version_info.major < 3:
     range = xrange
+else:
+    basestring = str
 
 MAX_INT = 2 ** 31 - 1
 MIN_INT = -(2 ** 31)
@@ -56,6 +59,10 @@ def super_len(x):
 
 def is_iterable(x):
     return hasattr(x, '__iter__')
+
+
+def is_sequence(x):
+    return isinstance(x, Sequence) and not isinstance(x, basestring)
 
 
 def memo(f):
