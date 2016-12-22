@@ -1,7 +1,7 @@
 from .data_structures import Reprable
 from .executors import Executor, OperationStub, Runnable
 from .user_interface import user_mode
-from .utils import is_iterable, identity, natural_join, nop, is_sequence, sentinel
+from .utils import is_iterable, identity, natural_join, nop, is_sequence, sentinel, is_string
 
 
 class Case(object):
@@ -150,19 +150,22 @@ class Case(object):
                 stubs.append(curr_stub[0])
                 curr_stub[0] = OperationStub()
 
-            def get_symbols():
+            def get_symbol():
                 if isinstance(item, Result):
-                    return RSLT,
-                if isinstance(item, str):
-                    return NAME, NEXT_NAME
-                if is_sequence(item):
-                    return INIT_ARGS, ARGS
-                if item is END:
-                    return END,
-                return ()
+                    symbols = RSLT,
+                elif is_string(item):
+                    symbols = NAME, NEXT_NAME
+                elif is_sequence(item):
+                    symbols = INIT_ARGS, ARGS
+                else:
+                    symbols = []
+                # assert at most one of symbols is in state
+                for s in symbols:
+                    if s in state:
+                        return s
 
             def exec_empty():
-                raise ValueError('No operation is specified')
+                raise ValueError('No args is specified')
 
             def handle_init_args():
                 init_args[:] = item
@@ -204,30 +207,24 @@ class Case(object):
                 next_states = TRANS.get(state)
                 assert next_states is not None, 'Invalid state'
 
-                # assert at most one of symbols is in state
-                for s in get_symbols():
-                    if s is END:
-                        handler = next_states[-1]
-                        break
-                    try:
-                        idx_next_state = state.index(s)
-                    except ValueError:
-                        pass
-                    else:
-                        handler = locals()['handle_' + s]
-                        state = next_states[idx_next_state]
-                        break
+                if item is END:
+                    handler = next_states[-1]
                 else:
-                    # Symbols are not accepted in current state
-                    REPRS = {
-                        NAME:      'method name',
-                        NEXT_NAME: 'method name',
-                        INIT_ARGS: '__init__ args',
-                        ARGS:      'arguments',
-                        RSLT:      'result object',
-                    }
-                    expected = natural_join('or', map(REPRS.get, state))
-                    raise ValueError('expected {}, got {}'.format(expected, repr(item)))
+                    symbol = get_symbol()
+                    if symbol is None:
+                        # symbol that is not accepted in current state
+                        REPRS = {
+                            NAME:      'method name',
+                            NEXT_NAME: 'method name',
+                            INIT_ARGS: '__init__ arguments',
+                            ARGS:      'arguments',
+                            RSLT:      'result object',
+                        }
+                        expected = natural_join('or', map(REPRS.get, state))
+                        raise ValueError('expected {}, got {}'.format(expected, repr(item)))
+
+                    handler = locals()['handle_' + symbol]
+                    state = next_states[state.index(symbol)]
 
                 handler()
 
@@ -272,6 +269,9 @@ class Case(object):
             raise RuntimeError('Both Result() object and result= keyword is specified')
         if isinstance(bound_result, type):
             # Used result generator
+            # assert all stub.collect is unset. Collect all returned values of operation
+            for stub in stubs:
+                stub.collect = True
             vals = self.executor.execute(bound_result).get_val()
         elif operation:
             # Used Result() objects.

@@ -62,7 +62,11 @@ def is_iterable(x):
 
 
 def is_sequence(x):
-    return isinstance(x, Sequence) and not isinstance(x, basestring)
+    return isinstance(x, Sequence) and not is_string(x)
+
+
+def is_string(x):
+    return isinstance(x, basestring)
 
 
 def memo(f):
