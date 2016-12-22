@@ -1,17 +1,17 @@
 from __future__ import print_function
 
-from rapidtest import Test, Case, TreeNode, memo, randints, MAX_INT, MIN_INT, ListNode, randbool, unordered
-from Solution import Solution
-from random import sample, randint, shuffle
-from itertools import product
+from random import randint, shuffle
 
+from Solution import Solution
+from rapidtest import Test, Case, randints, unordered
 
 with Test(Solution, post_proc=unordered) as test:
     Case([], result=[])
     Case([1], result=[])
-    Case([1,2], result=[])
-    Case([1,2,1], result=[1])
-    Case([2,2,1,1], result=[1,2])
+    Case([1, 2], result=[])
+    Case([1, 2, 1], result=[1])
+    Case([2, 2, 1, 1], result=[1, 2])
+
 
     @test
     def r(i):

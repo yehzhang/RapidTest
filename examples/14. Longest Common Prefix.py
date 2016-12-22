@@ -14,6 +14,7 @@ with Test(Solution) as test:
     alphabet = "qwertyuiopasdfghjklzxcvbnm"
     alphabet = set(alphabet + alphabet.upper())
 
+
     @test
     def r(i):
         prefix_chrs = sample(alphabet, randint(0, len(alphabet)))
@@ -22,7 +23,9 @@ with Test(Solution) as test:
 
         suffix_chrs = list(alphabet - set(prefix_chrs))
         if suffix_chrs:
-            strs = [prefix + suffix_chrs[i] + ''.join(sample(suffix_chrs, randint(0, len(suffix_chrs)))) for i in range(randint(1, len(suffix_chrs)))]
+            strs = [
+                prefix + suffix_chrs[i] + ''.join(sample(suffix_chrs, randint(0, len(suffix_chrs))))
+                for i in range(randint(1, len(suffix_chrs)))]
         else:
             strs = [prefix]
         return Case(strs, result=prefix if len(strs) > 1 else strs[0])

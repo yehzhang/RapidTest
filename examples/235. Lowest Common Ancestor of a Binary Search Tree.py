@@ -15,12 +15,14 @@ with Test(Solution) as test:
     Case(root, TreeNode(6), TreeNode(2), result=TreeNode(6))
     Case(root, TreeNode(0), TreeNode(0), result=TreeNode(0))
 
+
     @test
     def greater_children(i):
-        return Case(TreeNode.from_iterable([i, None, i + 1]), TreeNode(i), TreeNode(i + 1), result=TreeNode(i))
+        return Case(TreeNode.from_iterable([i, None, i + 1]), TreeNode(i), TreeNode(i + 1),
+                    result=TreeNode(i))
+
 
     @test
     def smaller_children(i):
-        return Case(TreeNode.from_iterable([i, i - 1]), TreeNode(i), TreeNode(i - 1), result=TreeNode(i))
-
-
+        return Case(TreeNode.from_iterable([i, i - 1]), TreeNode(i), TreeNode(i - 1),
+                    result=TreeNode(i))

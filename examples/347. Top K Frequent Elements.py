@@ -12,6 +12,7 @@ with Test(Solution) as test:
     Case([1, 1, 1, 2, 2, 3], 2, result=[1, 2])
     Case([4, 1, 2, 2, 3, 2, 4, 4, 4], 2, result=[4, 2])
 
+
     @test
     def r(i):
         cnt_nums = randint(1, 50)

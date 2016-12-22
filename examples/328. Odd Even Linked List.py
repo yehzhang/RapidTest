@@ -6,10 +6,12 @@ from Solution import Solution
 from rapidtest import Test, Case, randints, ListNode, randbool
 
 with Test(Solution) as test:
-    Case(ListNode.from_iterable([1, 2, 3, 4, 5, 6, 7, 8]), result=ListNode.from_iterable([1, 3, 5, 7, 2, 4, 6, 8]))
+    Case(ListNode.from_iterable([1, 2, 3, 4, 5, 6, 7, 8]),
+         result=ListNode.from_iterable([1, 3, 5, 7, 2, 4, 6, 8]))
     Case(ListNode.from_iterable([]), result=ListNode.from_iterable([]))
     Case(ListNode.from_iterable([1]), result=ListNode.from_iterable([1]))
     Case(ListNode.from_iterable([1, 2]), result=ListNode.from_iterable([1, 2]))
+
 
     @test
     def r(i):

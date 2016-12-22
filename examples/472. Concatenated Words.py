@@ -1,10 +1,7 @@
 from __future__ import print_function
 
-from rapidtest import Test, Case, TreeNode, memo, randints, MAX_INT, MIN_INT, ListNode, randbool, unordered, randstr
 from Solution import Solution
-from random import sample, randint, shuffle
-from itertools import product
-
+from rapidtest import Test, Case, unordered
 
 with Test(Solution, post_proc=unordered) as test:
     Case([], result=[])
@@ -20,4 +17,5 @@ with Test(Solution, post_proc=unordered) as test:
     Case(['', 'a', 'ab', 'b'], result=['ab'])
     Case(['', 'a', 'acb', 'b'], result=[])
     Case(['', 'a', 'acb', 'b', 'c'], result=['acb'])
-    Case(['cat','cats','catsdogcats','dog','dogcatsdog','hippopotamuses','rat','ratcatdogcat'], result=['catsdogcats','dogcatsdog','ratcatdogcat'])
+    Case(['cat', 'cats', 'catsdogcats', 'dog', 'dogcatsdog', 'hippopotamuses', 'rat',
+          'ratcatdogcat'], result=['catsdogcats', 'dogcatsdog', 'ratcatdogcat'])

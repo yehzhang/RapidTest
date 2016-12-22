@@ -16,6 +16,7 @@ with Test(Solution) as test:
     Case([2, 2, 3, 3], result=2)
     Case([2, 2, 3, 3, 4], result=3)
 
+
     @test
     def r(i):
         num_cits = randint(0, i)

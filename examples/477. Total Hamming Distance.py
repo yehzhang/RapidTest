@@ -1,13 +1,11 @@
 from __future__ import print_function
 
-from rapidtest import Test, Case, TreeNode, memo, randints, MAX_INT, MIN_INT, ListNode, randbool, unordered
 from Solution import Solution
-from random import sample, randint, shuffle
-from itertools import product
-
+from rapidtest import Test, Case, randints
 
 with Test(Solution) as test:
     Case([4, 14, 2], result=6)
+
 
     @test
     def r(i):

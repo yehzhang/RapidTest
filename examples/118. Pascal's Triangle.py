@@ -16,6 +16,7 @@ with Test(Solution) as test:
         rows.append(this_row)
         return rows
 
+
     @test
     def g(i):
         result = gen_pascal_triangle(i)

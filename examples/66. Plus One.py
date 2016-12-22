@@ -5,11 +5,12 @@ from rapidtest import Test, Case
 
 with Test(Solution) as test:
     Case([1], result=[2])
-    Case([9], result=[1,0])
-    Case([9,9], result=[1,0,0])
-    Case([1,1], result=[1,2])
+    Case([9], result=[1, 0])
+    Case([9, 9], result=[1, 0, 0])
+    Case([1, 1], result=[1, 2])
     Case([0], result=[1])
-    Case([9,9,9,9,9,9], result=[1,0,0,0,0,0,0])
+    Case([9, 9, 9, 9, 9, 9], result=[1, 0, 0, 0, 0, 0, 0])
+
 
     @test
     def large_nums(i):
