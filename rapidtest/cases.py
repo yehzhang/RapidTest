@@ -292,7 +292,7 @@ class Case(object):
                     'Result() object is not accepted when operation is False. Please use result= '
                     'keyword')
             if bound_result is sentinel:
-                raise RuntimeError('result= keyword is not specified when operation is False')
+                raise RuntimeError('result is not specified')
             vals = [self.executor.normalize_raw_output(bound_result)]
         self.asserted_output_vals = vals
 

@@ -75,7 +75,7 @@ class TestCase_(TestCase):
         with self.assertRaisesRegexp(RuntimeError, r'object.*not specified'):
             Case('a', operation=True, target=nop)._initialize()
 
-        with self.assertRaisesRegexp(RuntimeError, r'keyword.*not specified'):
+        with self.assertRaisesRegexp(RuntimeError, r'result.*not specified'):
             Case('a', target=nop)._initialize()
 
         Case('a', Result(2), operation=True, target=nop)._initialize()
