@@ -200,12 +200,13 @@ class TreeNode(Reprable):
 
         node = cls.from_iterable(structured_vals)
 
-        if binary_search:
-            def _repl_val(node):
-                node.val = next(cnt)
+        if node:
+            if binary_search:
+                def _repl_val(node):
+                    node.val = next(cnt)
 
-            cnt = count()
-            node.traverse_map(_repl_val, cls.INORDER)
+                cnt = count()
+                node.traverse_map(_repl_val, cls.INORDER)
 
         return node
 
