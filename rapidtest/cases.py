@@ -1,3 +1,5 @@
+from inspect import isclass
+
 from .data_structures import Reprable
 from .executors import Executor, OperationStub, Runnable
 from .user_interface import user_mode
@@ -82,7 +84,7 @@ class Case(object):
 
     @classmethod
     def process_target(cls, target):
-        if not isinstance(target, type):
+        if not isclass(target):
             if callable(target):
                 target = Runnable.ClassFactory(target)
             else:
@@ -267,7 +269,7 @@ class Case(object):
         bound_result = self.params.get(self.BIND_RESULT, sentinel)
         if result_objects and bound_result is not sentinel:
             raise RuntimeError('Both Result() object and result= keyword is specified')
-        if isinstance(bound_result, type):
+        if isclass(bound_result):
             # Used result generator
             # assert all stub.collect is unset. Collect all returned values of operation
             for stub in stubs:

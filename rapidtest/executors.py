@@ -1,6 +1,6 @@
 # coding=utf-8
 from copy import deepcopy
-from inspect import getmembers, ismethod
+from inspect import getmembers, ismethod, isclass
 
 from .user_interface import inject_dependency, get_dependency
 from .utils import is_iterable, identity, OneTimeSetProperty, sentinel, PRIMITIVE_TYPES as \
@@ -26,7 +26,7 @@ class Runnable(object):
     def ClassFactory(cls, f):
         """Wrap a function with a subclass of Runnable so that it is a qualified target.
 
-        :param callable f:
+        :param function f:
         """
         cls._cnt_subclasses += 1
         cls_name = '_{}_subclass_{}'.format(cls.__name__, cls._cnt_subclasses)
@@ -46,8 +46,7 @@ class Executor(object):
     """
     _injected_targets = set()
 
-    PRIMITIVE_TYPES = P_TYPES + tuple(
-        filter(lambda x: isinstance(x, type), get_dependency().values()))
+    PRIMITIVE_TYPES = P_TYPES + tuple(v for v in get_dependency().values() if isclass(v))
 
     def __init__(self, init_args, operation_stubs, post_proc=None, in_place_selector=None):
         self.init_args = init_args
@@ -61,7 +60,7 @@ class Executor(object):
         :param type target:
         :return ExecutionOutput:
         """
-        if not isinstance(target, type):
+        if not isclass(target):
             raise ValueError('Target is not a class')
 
         # Inject dependency such as TreeNode into user's solutions
