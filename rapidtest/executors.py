@@ -1,3 +1,4 @@
+# coding=utf-8
 from copy import deepcopy
 from inspect import getmembers, ismethod
 
@@ -192,14 +193,15 @@ class OperationOutput(Output):
 
         if self.collect:
             if self.asserted_val is sentinel:
-                repr_output = '?'
+                repr_comp = '?'
             else:
-                op_eq = '==' if self.result else '!='
-                repr_output = '{} {} {}'.format(repr(self.val), op_eq, repr(self.asserted_val))
+                repr_res = '√' if self.result else '!= {}'.format(repr(self.asserted_val))
+                repr_comp = '{} {}'.format(repr(self.val), repr_res)
+            repr_output = ' -> ' + repr_comp
         else:
-            repr_output = '# discarded'
+            repr_output = ''
 
-        return '{}({}) -> {}'.format(self.func_name, repr_args, repr_output)
+        return '{}({}){}'.format(self.func_name, repr_args, repr_output)
 
     def get_val(self):
         if not self.collect:
@@ -236,33 +238,45 @@ class ExecutionOutput(Output):
             # Abbreviate outputs if there are too many
             if len(self._checked_outputs) > self.MAX_STR_ENTS:
                 if trim_end:
-                    entries.extend(self._checked_outputs[:self.MAX_STR_ENTS - 1])
-                    entries.append(self.ABBR_ENTS)
+                    ents = self._checked_outputs[:self.MAX_STR_ENTS - 1]
+                    if ents:
+                        ents.append(self.ABBR_ENTS)
+                        ents = [indent(e) for e in ents]
+                        ents.insert(0, '')
                 else:
-                    entries.append(self.ABBR_ENTS)
-                    entries.extend(self._checked_outputs[-self.MAX_STR_ENTS + 1:])
+                    ents = self._checked_outputs[-self.MAX_STR_ENTS + 1:]
+                    if ents:
+                        ents = [indent(e) for e in ents]
+                        ents.insert(0, self.ABBR_ENTS)
             else:
-                entries.extend(self._checked_outputs)
+                ents = self._checked_outputs
+                if ents:
+                    ents = [indent(e) for e in ents]
+                    ents.insert(0, self.ABBR_ENTS)
+
+            if ents:
+                entries.append('\n'.join(ents))
+            else:
+                entries.append('no operations')
 
         entries = []
 
         if self.result is None:
-            # Outputs were not checked. Display the first few outputs
-            entries.append('Returned values have not been completely checked')
+            entries.append('output has not been completely checked: ')
 
             # Populate _checked_outputs with entries to be displayed
-            for _ in zip(range(self.MAX_STR_ENTS), self):
+            for _ in zip(range(self.MAX_STR_ENTS + 1), self):
                 pass
+
             abbr(True)
         elif self.result is False:
-            # Outputs were checked and has an error. Display the few outputs before the error one
+            entries.append('output of the last operation differs: ')
             abbr(False)
         else:  # self.result is True
-            # Outputs were checked and has no error
-            entries.append('Returned values of operations equal asserted values')
+            entries.append('output equals: ')
+            abbr(False)
 
-        entries = [indent(e, 0 if i == 0 else 1) for i, e in enumerate(entries)]
-        return '\n'.join(entries)
+        return ''.join(entries)
 
     def __iter__(self):
         """Iterate through all outputs."""

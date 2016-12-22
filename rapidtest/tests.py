@@ -177,7 +177,7 @@ class Test(object):
                     (self.passed_cases if success else self.failed_cases).append(case)
 
                 if not success:
-                    raise ValueError('Case output is not equal to result: {}'.format(case))
+                    raise ValueError(str(case))
         finally:
             if has_printed:
                 print()

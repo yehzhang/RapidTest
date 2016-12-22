@@ -25,7 +25,7 @@ class TestTest(TestCase):
                         'pop', Result(2)))
         t.add_case(Case('append', [1],
                         'pop', Result(1)))
-        with self.assertRaisesRegexp(ValueError, r'Case output'):
+        with self.assertRaisesRegexp(ValueError, r'differ'):
             t.run()
         t.run()
 
