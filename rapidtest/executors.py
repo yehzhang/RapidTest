@@ -239,23 +239,14 @@ class ExecutionOutput(Output):
             if len(self._checked_outputs) > self.MAX_STR_ENTS:
                 if trim_end:
                     ents = self._checked_outputs[:self.MAX_STR_ENTS - 1]
-                    if ents:
-                        ents.append(self.ABBR_ENTS)
-                        ents = [indent(e) for e in ents]
-                        ents.insert(0, '')
                 else:
                     ents = self._checked_outputs[-self.MAX_STR_ENTS + 1:]
-                    if ents:
-                        ents = [indent(e) for e in ents]
-                        ents.insert(0, self.ABBR_ENTS)
+                ents.insert(0, self.ABBR_ENTS)
             else:
                 ents = self._checked_outputs
-                if ents:
-                    ents = [indent(e) for e in ents]
-                    ents.insert(0, self.ABBR_ENTS)
 
             if ents:
-                entries.append('\n'.join(ents))
+                entries.append('\n' + '\n'.join(map(indent, ents)))
             else:
                 entries.append('no operations')
 
@@ -270,7 +261,7 @@ class ExecutionOutput(Output):
 
             abbr(True)
         elif self.result is False:
-            entries.append('output of the last operation differs: ')
+            entries.append('output differs: ')
             abbr(False)
         else:  # self.result is True
             entries.append('output equals: ')

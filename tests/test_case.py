@@ -33,7 +33,7 @@ class TestCase_(TestCase):
         ], [Result(1), Result('d'), Result([0])]))
 
         STRS = [
-            ([], r'No operation is specified'),
+            ([], r'No.*is specified'),
             ([
                  [1, 2, 3],
                  []
