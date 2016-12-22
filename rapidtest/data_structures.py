@@ -133,30 +133,30 @@ class TreeNode(Reprable):
     @classmethod
     @privileged
     def from_iterable(cls, vals):
-        q = deque(vals)
-        if not q:
+        q_vals = deque(vals)
+        if not q_vals:
             return None
 
-        val = q.popleft()
+        val = q_vals.popleft()
         if val is None:
             raise ValueError('Root of tree cannot be None')
         root = cls(val)
 
-        q = deque([root])
-        while q and q:
-            parent = q.popleft()
+        q_nodes = deque([root])
+        while q_vals and q_nodes:
+            parent = q_nodes.popleft()
 
-            val = q.popleft()
+            val = q_vals.popleft()
             if val is not None:
                 parent.left = cls(val)
-                q.append(parent.left)
+                q_nodes.append(parent.left)
 
-            if not q:
+            if not q_vals:
                 break
-            val = q.popleft()
+            val = q_vals.popleft()
             if val is not None:
                 parent.right = cls(val)
-                q.append(parent.right)
+                q_nodes.append(parent.right)
 
         return root
 
