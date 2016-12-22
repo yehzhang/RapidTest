@@ -203,3 +203,11 @@ def powerset(iterable):
 
 def indent(s, level=1, spaces=4):
     return '{}{}'.format(' ' * spaces * level, s)
+
+
+def get_func(obj, name):
+    func = getattr(obj, name)
+    if not callable(func):
+        raise RuntimeError(
+            "{} object's attribute {} is not callable".format(repr(type(obj).__name__), repr(name)))
+    return func

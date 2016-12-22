@@ -207,7 +207,7 @@ class Test(object):
                 cnt_pending_cases += len(s)
                 self._pending_sessions.append(iter(s))
         except Exception as e:
-            return self.EXIT_GEN_ERR, 'Exception raised in pending cases: {}'.format(e)
+            return self.EXIT_GEN_ERR, 'Exception raised when counting pending cases: {}'.format(e)
         if cnt_pending_cases:
             return self.EXIT_PENDING, 'Leaving {} pending cases'.format(cnt_pending_cases)
         if self.failed_cases:

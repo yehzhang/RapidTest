@@ -5,7 +5,7 @@ from inspect import getmembers, ismethod, isclass
 from .user_interface import inject_dependency, get_dependency
 from .utils import is_iterable, identity, OneTimeSetProperty, sentinel, PRIMITIVE_TYPES as \
     P_TYPES, \
-    indent
+    indent, get_func
 
 
 class Runnable(object):
@@ -20,7 +20,7 @@ class Runnable(object):
         """
         if cls.ENTRY_POINT_NAME is None:
             raise RuntimeError('Runnable is not built by ClassFactory nor extended')
-        return cls.ENTRY_POINT_NAME, getattr(cls, cls.ENTRY_POINT_NAME)
+        return cls.ENTRY_POINT_NAME, get_func(cls, cls.ENTRY_POINT_NAME)
 
     @classmethod
     def ClassFactory(cls, f):
@@ -105,7 +105,7 @@ class Executor(object):
         if isinstance(target_instance, Runnable):
             method = target_instance.get_entry_point()
         elif name:
-            method = name, getattr(target_instance, name)
+            method = name, get_func(target_instance, name)
         else:
             # Get a public method
             methods = getmembers(target_instance, predicate=ismethod)
@@ -148,8 +148,8 @@ class OperationStub(object):
                                                                                other.collect
 
     def __str__(self):
-        return '{}({}) -> {}'.format(self.name, OperationOutput.join_repr(self.args),
-                                     '?' if self.collect else '#')
+        repr_res = ' -> ?' if self.collect else ''
+        return '{}({}){}'.format(self.name, OperationOutput.join_repr(self.args), repr_res)
 
 
 class Output(object):
@@ -194,9 +194,8 @@ class OperationOutput(Output):
             if self.asserted_val is sentinel:
                 repr_comp = '?'
             else:
-                repr_res = '√' if self.result else '!= {}'.format(repr(self.asserted_val))
-                repr_comp = '{} {}'.format(repr(self.val), repr_res)
-            repr_output = ' -> ' + repr_comp
+                repr_comp = '√' if self.result else '!= {}'.format(repr(self.asserted_val))
+            repr_output = ' -> {} {}'.format(repr(self.val), repr_comp)
         else:
             repr_output = ''
 
@@ -219,7 +218,7 @@ class OperationOutput(Output):
 
 
 class ExecutionOutput(Output):
-    MAX_STR_ENTS = 4
+    MAX_ENT_LNS = 4
     ABBR_ENTS = '...'
 
     def __init__(self, operations):
@@ -233,18 +232,20 @@ class ExecutionOutput(Output):
     def __str__(self):
         """String representation of current state of result."""
 
-        def abbr(trim_end=False):
-            # Abbreviate outputs if there are too many
-            if len(self._checked_outputs) > self.MAX_STR_ENTS:
-                if trim_end:
-                    ents = self._checked_outputs[:self.MAX_STR_ENTS - 1]
-                else:
-                    ents = self._checked_outputs[-self.MAX_STR_ENTS + 1:]
-                ents.insert(0, self.ABBR_ENTS)
-            else:
-                ents = self._checked_outputs
-
+        def abbr(ents, trim_bottom=False):
             if ents:
+                # Abbreviate outputs if there are too many
+                if len(ents) > self.MAX_ENT_LNS:
+                    if trim_bottom:
+                        i_start = 0
+                        i_end = self.MAX_ENT_LNS
+                        i_abbr = -1
+                    else:  # trim_top
+                        i_end = len(ents)
+                        i_start = i_end - self.MAX_ENT_LNS
+                        i_abbr = 0
+                    ents = ents[i_start:i_end]
+                    ents[i_abbr] = self.ABBR_ENTS
                 entries.append('\n' + '\n'.join(map(indent, ents)))
             else:
                 entries.append('no operations')
@@ -255,16 +256,23 @@ class ExecutionOutput(Output):
             entries.append('output has not been completely checked: ')
 
             # Populate _checked_outputs with entries to be displayed
-            for _ in zip(range(self.MAX_STR_ENTS + 1), self):
+            for _ in zip(range(self.MAX_ENT_LNS + 1), self):
                 pass
 
-            abbr(True)
+            abbr(self._checked_outputs, True)
         elif self.result is False:
             entries.append('output differs: ')
-            abbr(False)
+
+            # Display until failure
+            i_end = len(self._checked_outputs)
+            for i, o in enumerate(self._checked_outputs, 1):
+                if o.collect and not o.result:
+                    i_end = i
+                    break
+            abbr(self._checked_outputs[:i_end])
         else:  # self.result is True
             entries.append('output equals: ')
-            abbr(False)
+            abbr(self._checked_outputs)
 
         return ''.join(entries)
 
