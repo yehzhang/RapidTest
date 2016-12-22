@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from rapidtest import Result, Test, Case
+from rapidtest import Result, Test, Case, TreeNode
 
 
 class TestTest(TestCase):
@@ -29,7 +29,6 @@ class TestTest(TestCase):
             t.run()
         t.run()
 
-
     def test_summary(self):
         def assert_sum_code(c):
             code, _ = t.summary()
@@ -56,7 +55,18 @@ class TestTest(TestCase):
             if i == 0:
                 return Case('append', [1], Result(None))
             raise ValueError
+
         t.add_func(f)
         with self.assertRaises(ValueError):
             t.run()
         assert_sum_code(t.EXIT_GEN_ERR)
+
+    def test_user_mode(self):
+        class Cheater(object):
+            def run(self):
+                TreeNode([0]).inorder()
+
+        with self.assertRaisesRegexp(RuntimeError, r'Call.*when judging'):
+            t = Test(Cheater)
+            t.add_case(Case(result=None))
+            t.run()
