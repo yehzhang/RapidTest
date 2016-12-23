@@ -3,36 +3,33 @@ from importlib import import_module
 from inspect import getmodule
 
 _kernel_mode = True
-_privilege_violation_msg = None
 
 
 @contextmanager
-def user_mode(msg=None):
+def user_mode():
     """Prevent running privileged functions in this context.
 
     :param str msg: message to warn user about when calling privileged functions
     """
-    global _kernel_mode, _privilege_violation_msg
+    global _kernel_mode
     if not _kernel_mode:
         raise RuntimeError('Already in user mode')
 
-    if msg is not None:
-        _privilege_violation_msg = msg
     _kernel_mode = False
     try:
         yield
     finally:
         _kernel_mode = True
-        _privilege_violation_msg = None
 
 
 def privileged(f):
     """Mark a function as privileged."""
+    if not callable(f):
+        raise TypeError('{} is not callable'.format(repr(f)))
 
     def _f(*args, **kwargs):
         if not _kernel_mode:
-            msg = 'Using this feature is unsupported' if _privilege_violation_msg is None else \
-                _privilege_violation_msg
+            msg = 'Calling {func_name} when judging is unsupported'.format(func_name=f.__name__)
             raise RuntimeError(msg)
         return f(*args, **kwargs)
 

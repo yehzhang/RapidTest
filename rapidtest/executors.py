@@ -2,7 +2,7 @@
 from copy import deepcopy
 from inspect import getmembers, ismethod, isclass
 
-from .user_interface import inject_dependency, get_dependency
+from .user_interface import inject_dependency, get_dependency, user_mode
 from .utils import is_iterable, identity, OneTimeSetProperty, sentinel, PRIMITIVE_TYPES as \
     P_TYPES, \
     indent, get_func
@@ -68,7 +68,8 @@ class Executor(object):
             inject_dependency(target)
             self._injected_targets.add(target)
 
-        target_instance = target(*self.init_args)
+        with user_mode():
+            target_instance = target(*self.init_args)
 
         # Lazy-executing operations
         ops = (self._execute(stub, target_instance) for stub in self.operation_stubs)
@@ -79,14 +80,15 @@ class Executor(object):
         :param OperationStub stub:
         :return OperationOutput:
         """
-        called_func_name, func = self.get_target_method(target_instance, stub.name)
-        args = deepcopy(stub.args)
-        val = func(*args)
+        with user_mode():
+            called_func_name, func = self.get_target_method(target_instance, stub.name)
+            args = deepcopy(stub.args)
+            val = func(*args)
 
-        if stub.collect:
-            if self.in_place_selector:
-                val = self.in_place_selector(args)
-            val = self.normalize_raw_output(val)
+            if stub.collect:
+                if self.in_place_selector:
+                    val = self.in_place_selector(args)
+                val = self.normalize_raw_output(val)
 
         return OperationOutput(called_func_name, stub.args, stub.collect, val)
 

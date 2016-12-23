@@ -2,7 +2,6 @@ from inspect import isclass
 
 from .data_structures import Reprable
 from .executors import Executor, OperationStub, Runnable
-from .user_interface import user_mode
 from .utils import is_iterable, identity, natural_join, nop, is_sequence, sentinel, is_string
 
 
@@ -301,9 +300,8 @@ class Case(object):
     def run(self):
         if self.execution_output is None:
             self._initialize()
-            with user_mode('Calling this method is unsupported when judging'):
-                self.execution_output = self.executor.execute(self.target)
-                self.execution_output.check(self.asserted_output_vals)
+            self.execution_output = self.executor.execute(self.target)
+            self.execution_output.check(self.asserted_output_vals)
         return self.execution_output.result
 
 
