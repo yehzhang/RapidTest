@@ -32,8 +32,8 @@ class TreeNode(Reprable):
         return self._eq(o)
 
     def _eq(self, o):
-        return o and self.val == o.val and self.left and self.left._eq(
-            o.left) and self.right and self.right._eq(o.right)
+        return o and self.val == o.val and (not self.left or self.left._eq(
+            o.left)) and (not self.right or self.right._eq(o.right))
 
     def __str__(self):
         return self._to_string(True)
@@ -125,10 +125,26 @@ class TreeNode(Reprable):
 
     @privileged
     def flatten(self):
+        """Inverse function of TreeNode.from_iterable
+
+        :return [int|None]:
         """
-        :return [int]:
-        """
-        raise NotImplementedError
+        vals = []
+
+        q_nodes = deque([self])
+        while q_nodes:
+            parent = q_nodes.popleft()
+            if parent is None:
+                vals.append(None)
+            else:
+                vals.append(parent.val)
+                q_nodes.append(parent.left)
+                q_nodes.append(parent.right)
+
+        while vals[-1] is None:
+            vals.pop()
+
+        return vals
 
     @classmethod
     @privileged
@@ -172,9 +188,10 @@ class TreeNode(Reprable):
 
     @classmethod
     @privileged
-    def make_random(cls, num_nodes=100, binary_search=False):
+    def make_random(cls, num_nodes=100, unique=False, binary_search=False):
         """
         :param int num_nodes: number of nodes in the tree
+        :param bool unique: whether there are no duplicates
         :param bool binary_search: whether return a binary search tree or simply a binary tree
         :return TreeNode:
         """
@@ -182,7 +199,7 @@ class TreeNode(Reprable):
         if binary_search:
             vals = [0] * num_nodes  # just a placeholder array
         else:
-            vals = randints(num_nodes)
+            vals = randints(num_nodes, unique=unique, max_num=num_nodes - 1)
 
         # Randomize structure
         structured_vals = []
