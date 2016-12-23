@@ -35,7 +35,9 @@ class Case(object):
         # TODO support other languages
 
     :param callable|iterable post_proc: a post-processing function that takes a returned value and
-        processes it, or an sequence of such functions to be applied from left to right
+        processes it, or an sequence of such functions to be applied from left to right.
+
+        Note that post_proc will be applied to result, if it is a plain value.
 
     :param any result: if this parameter is a class or function, it will be treated as another
         `target`, with its output being compared.
