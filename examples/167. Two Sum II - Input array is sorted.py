@@ -1,7 +1,7 @@
 from random import sample
 
-from Solution import Solution
 from rapidtest import Test, Case
+from solutions.two_sum_ii__input_array_is_sorted import Solution
 
 with Test(Solution) as test:
     Case([0, 0], 0, result=[1, 2])

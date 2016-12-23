@@ -1,7 +1,7 @@
 from __future__ import print_function
 
-from Solution import MedianFinder
 from rapidtest import Result, Test, Case, randints
+from solutions.find_median_from_data_stream import MedianFinder
 
 with Test(MedianFinder, operation=True) as test:
     Case('addNum', [1],

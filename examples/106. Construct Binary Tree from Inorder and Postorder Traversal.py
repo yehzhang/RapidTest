@@ -1,5 +1,5 @@
-from Solution import Solution
-from rapidtest import Test, Case, Tree
+from rapidtest import Test, Case, TreeNode
+from solutions.construct_binary_tree_from_inorder_and_postorder_traversal import Solution
 
 with Test(Solution) as test:
     Case([], [], result=None)
@@ -12,5 +12,5 @@ with Test(Solution) as test:
 
     @test
     def r(i):
-        tree = Tree.make_random(100)
+        tree = TreeNode.make_random(100)
         return Case(tree.inorder(), tree.postorder(), result=tree.root)

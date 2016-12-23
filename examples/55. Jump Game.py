@@ -1,7 +1,7 @@
 from __future__ import print_function
 
-from Solution import Solution
 from rapidtest import Test, Case
+from solutions.jump_game import Solution
 
 with Test(Solution) as test:
     Case([], result=True)

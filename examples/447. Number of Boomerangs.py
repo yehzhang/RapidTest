@@ -1,5 +1,5 @@
-from Solution import Solution
 from rapidtest import Test, Case
+from solutions.number_of_boomerangs import Solution
 
 with Test(Solution) as test:
     Case([[0, 0], [1, 0], [2, 0]], result=2)

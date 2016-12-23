@@ -1,5 +1,5 @@
-from Solution import Solution
 from rapidtest import Test, Case
+from solutions.arranging_coins import Solution
 
 with Test(Solution) as test:
     @test

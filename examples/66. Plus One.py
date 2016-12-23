@@ -1,7 +1,7 @@
 from random import randint
 
-from Solution import Solution
 from rapidtest import Test, Case
+from solutions.plus_one import Solution
 
 with Test(Solution) as test:
     Case([1], result=[2])

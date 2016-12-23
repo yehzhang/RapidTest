@@ -1,7 +1,7 @@
 from __future__ import print_function
 
-from Solution import AllOne
 from rapidtest import Result, Test, Case
+from solutions.all_oone_data_structure import AllOne
 
 with Test(AllOne, operation=True) as test:
     Case('getMaxKey', Result(''),

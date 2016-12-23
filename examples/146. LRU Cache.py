@@ -1,7 +1,7 @@
 from __future__ import print_function
 
-from Solution import LRUCache
 from rapidtest import Result, Test, Case
+from solutions.lru_cache import LRUCache
 
 with Test(LRUCache, operation=True) as test:
     Case([4],

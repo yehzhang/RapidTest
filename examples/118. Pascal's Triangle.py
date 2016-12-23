@@ -1,5 +1,5 @@
-from Solution import Solution
 from rapidtest import Test, Case, memo
+from solutions.pascals_triangle import Solution
 
 with Test(Solution) as test:
     @memo

@@ -1,7 +1,7 @@
 from random import randint
 
-from Solution import Solution
 from rapidtest import Test, Case, randints, MAX_INT
+from solutions.hindex_ii import Solution
 
 with Test(Solution) as test:
     Case([], result=0)

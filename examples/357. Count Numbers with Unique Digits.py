@@ -1,5 +1,5 @@
-from Solution import Solution
 from rapidtest import Test, Case
+from solutions.count_numbers_with_unique_digits import Solution
 
 with Test(Solution) as test:
     ans = {

@@ -1,7 +1,7 @@
 from random import randint, shuffle
 
-from Solution import Solution
 from rapidtest import Test, Case, randints, MAX_INT, MIN_INT
+from solutions.top_k_frequent_elements import Solution
 
 with Test(Solution) as test:
     Case([2], 1, result=[2])

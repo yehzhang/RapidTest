@@ -1,7 +1,7 @@
 from __future__ import print_function
 
-from Solution import Solution
 from rapidtest import Test, Case
+from solutions.hamming_distance import Solution
 
 with Test(Solution) as test:
     Case([4, 14, 2], result=6)

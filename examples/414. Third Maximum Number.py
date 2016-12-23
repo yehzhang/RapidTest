@@ -1,7 +1,7 @@
 from __future__ import print_function
 
-from Solution import Solution
 from rapidtest import Test, Case, randints
+from solutions.third_maximum_number import Solution
 
 with Test(Solution) as test:
     Case([1], result=1)

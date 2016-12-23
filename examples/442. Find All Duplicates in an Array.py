@@ -2,8 +2,8 @@ from __future__ import print_function
 
 from random import randint, shuffle
 
-from Solution import Solution
 from rapidtest import Test, Case, randints, unordered
+from solutions.find_all_duplicates_in_an_array import Solution
 
 with Test(Solution, post_proc=unordered) as test:
     Case([], result=[])

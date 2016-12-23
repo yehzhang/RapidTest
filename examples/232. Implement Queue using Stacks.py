@@ -1,7 +1,7 @@
 from __future__ import print_function
 
-from Solution import Queue
 from rapidtest import Result, Test, Case
+from solutions.implement_queue_using_stacks import Queue
 
 with Test(Queue, operation=True) as test:
     Case('empty', Result(True),

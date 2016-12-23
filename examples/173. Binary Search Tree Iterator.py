@@ -1,7 +1,7 @@
 from __future__ import print_function
 
-from Solution import BSTIterator
 from rapidtest import Result, Test, Case, TreeNode
+from solutions.binary_search_tree_iterator import BSTIterator
 
 with Test(BSTIterator, operation=True) as test:
     root = TreeNode.from_iterable([5, 3, 7, 1, 4, 6, 8, None, 2])

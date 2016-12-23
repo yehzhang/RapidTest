@@ -2,8 +2,8 @@ from __future__ import print_function
 
 from random import randint
 
-from Solution import Solution
 from rapidtest import Test, Case, randints, ListNode, randbool
+from solutions.odd_even_linked_list import Solution
 
 with Test(Solution) as test:
     Case(ListNode.from_iterable([1, 2, 3, 4, 5, 6, 7, 8]),
