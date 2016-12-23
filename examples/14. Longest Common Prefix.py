@@ -1,6 +1,6 @@
 from random import sample, randint, shuffle
 
-from Solution import Solution
+from solutions.longest_common_prefix import Solution
 from rapidtest import Test, Case
 
 with Test(Solution) as test:

@@ -12,5 +12,5 @@ with Test(Solution) as test:
 
     @test
     def r(i):
-        tree = TreeNode.make_random(100)
-        return Case(tree.inorder(), tree.postorder(), result=tree.root)
+        root = TreeNode.make_random(max(1, i), unique=True)
+        return Case(root.inorder(), root.postorder(), result=root)

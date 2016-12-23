@@ -1,7 +1,7 @@
 from rapidtest import Test, Case, TreeNode
 from solutions.lowest_common_ancestor_of_a_binary_search_tree import Solution
 
-with Test(Solution) as test:
+with Test(Solution, post_proc=TreeNode.get_val) as test:
     root = TreeNode.from_iterable([6, 2, 8, 0, 4, 7, 9, None, None, 3, 5])
     Case(root, TreeNode(2), TreeNode(4), result=TreeNode(2))
     Case(root, TreeNode(4), TreeNode(2), result=TreeNode(2))
