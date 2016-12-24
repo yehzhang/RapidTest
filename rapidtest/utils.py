@@ -201,10 +201,6 @@ def powerset(iterable):
     return chain.from_iterable(combinations(s, r) for r in range(len(s) + 1))
 
 
-def indent(s, level=1, spaces=4):
-    return '{}{}'.format(' ' * spaces * level, s)
-
-
 def get_func(obj, name):
     func = getattr(obj, name)
     if not callable(func):

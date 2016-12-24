@@ -1,4 +1,3 @@
-from contextlib import contextmanager
 from importlib import import_module
 from inspect import getmodule
 
@@ -7,6 +6,7 @@ _kernel_mode = True
 
 class UserMode(object):
     """Prevent running privileged functions in this context. """
+
     def __enter__(self):
         global _kernel_mode
         if not _kernel_mode:

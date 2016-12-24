@@ -1,7 +1,6 @@
 from unittest import TestCase
 
-from rapidtest import TreeNode
-from rapidtest import randints
+from rapidtest import TreeNode, randints
 
 
 class TestTreeNode(TestCase):
