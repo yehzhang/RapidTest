@@ -2,10 +2,9 @@
 from copy import deepcopy
 from inspect import getmembers, ismethod, isclass
 
-from .user_interface import inject_dependency, get_dependency, user_mode
+from .user_interface import inject_dependency, get_dependency, UserMode
 from .utils import is_iterable, identity, OneTimeSetProperty, sentinel, PRIMITIVE_TYPES as \
-    P_TYPES, \
-    indent, get_func
+    P_TYPES, get_func
 
 
 class Runnable(object):
@@ -53,6 +52,7 @@ class Executor(object):
         self.operation_stubs = operation_stubs
         self.post_proc = post_proc or identity
         self.in_place_selector = in_place_selector
+        self.environment = UserMode()
 
     def execute(self, target):
         """Execute operations on the target.
@@ -68,7 +68,7 @@ class Executor(object):
             inject_dependency(target)
             self._injected_targets.add(target)
 
-        with user_mode():
+        with self.environment:
             target_instance = target(*self.init_args)
 
         # Lazy-executing operations
@@ -80,7 +80,7 @@ class Executor(object):
         :param OperationStub stub:
         :return OperationOutput:
         """
-        with user_mode():
+        with self.environment:
             called_func_name, func = self.get_target_method(target_instance, stub.name)
             args = deepcopy(stub.args)
             val = func(*args)
@@ -233,25 +233,6 @@ class ExecutionOutput(Output):
 
     def __str__(self):
         """String representation of current state of result."""
-
-        def abbr(ents, trim_bottom=False):
-            if ents:
-                # Abbreviate outputs if there are too many
-                if len(ents) > self.MAX_ENT_LNS:
-                    if trim_bottom:
-                        i_start = 0
-                        i_end = self.MAX_ENT_LNS
-                        i_abbr = -1
-                    else:  # trim_top
-                        i_end = len(ents)
-                        i_start = i_end - self.MAX_ENT_LNS
-                        i_abbr = 0
-                    ents = ents[i_start:i_end]
-                    ents[i_abbr] = self.ABBR_ENTS
-                entries.append('\n' + '\n'.join(map(indent, ents)))
-            else:
-                entries.append('no operations')
-
         entries = []
 
         if self.result is None:
@@ -261,7 +242,9 @@ class ExecutionOutput(Output):
             for _ in zip(range(self.MAX_ENT_LNS + 1), self):
                 pass
 
-            abbr(self._checked_outputs, True)
+            ents = self._checked_outputs
+            trim_bottom = True
+
         elif self.result is False:
             entries.append('output differs: ')
 
@@ -271,10 +254,33 @@ class ExecutionOutput(Output):
                 if o.collect and not o.result:
                     i_end = i
                     break
-            abbr(self._checked_outputs[:i_end])
+
+            ents = self._checked_outputs[:i_end]
+            trim_bottom = False
+
         else:  # self.result is True
             entries.append('output equals: ')
-            abbr(self._checked_outputs)
+
+            ents = self._checked_outputs
+            trim_bottom = False
+
+        if ents:
+            # Abbreviate outputs if there are too many
+            if len(ents) > self.MAX_ENT_LNS:
+                if trim_bottom:
+                    i_start = 0
+                    i_end = self.MAX_ENT_LNS
+                    i_abbr = -1
+                else:  # trim_top
+                    i_end = len(ents)
+                    i_start = i_end - self.MAX_ENT_LNS
+                    i_abbr = 0
+                ents = ents[i_start:i_end]
+                ents[i_abbr] = self.ABBR_ENTS
+
+            entries.append('\n' + '\n'.join('{}{}'.format(' ' * 4, e) for e in ents))
+        else:
+            entries.append('no operations')
 
         return ''.join(entries)
 

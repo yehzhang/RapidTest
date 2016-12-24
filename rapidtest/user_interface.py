@@ -5,20 +5,16 @@ from inspect import getmodule
 _kernel_mode = True
 
 
-@contextmanager
-def user_mode():
-    """Prevent running privileged functions in this context.
+class UserMode(object):
+    """Prevent running privileged functions in this context. """
+    def __enter__(self):
+        global _kernel_mode
+        if not _kernel_mode:
+            raise RuntimeError('Already in user mode')
+        _kernel_mode = False
 
-    :param str msg: message to warn user about when calling privileged functions
-    """
-    global _kernel_mode
-    if not _kernel_mode:
-        raise RuntimeError('Already in user mode')
-
-    _kernel_mode = False
-    try:
-        yield
-    finally:
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        global _kernel_mode
         _kernel_mode = True
 
 
