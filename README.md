@@ -38,7 +38,7 @@ $ python do_tests.py
 Passed all 2 test cases
 ```
 
-And that's it. No more object creation or function calls. What the example does is simple: for each `Case` created, its positional arguments are passed to `Solution`'s only public method `findMedianSortedArrays`, and then the value returned is compared with `result`.
+And that's it. No more object creation or function calls. What the example does is simple: for each `Case` created, its positional arguments are passed to `Solution`'s only public method, `findMedianSortedArrays` in this case, and then the value returned is compared with `result`.
 
 
 ### Random testing
@@ -94,7 +94,7 @@ TreeNode(6, (3, (1, 0, 2), (5, 4, #)), (8, 7, 9))
 
 ### Advanced features
 
-- (Using operations)[./advanced_features.md#using-operations]
+- (Using operations)[./advanced_features.md#using-operations] when there are multiple methods to be called.
 
 
 ### Other features
