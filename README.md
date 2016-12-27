@@ -99,7 +99,7 @@ TreeNode(6, (3, (1, 0, 2), (5, 4, #)), (8, 7, 9))
 
 ### Other features
 
-- You can use `ListNode` and `TreeNode` in your `solution.py` without first importing them like you did in the LeetCode editor.
+- You can use `ListNode` and `TreeNode` in your `solution.py` directly like you did in the LeetCode editor without first importing them.
 - Sometimes the order of returned elements in a list does not matter. You may specify this situation like:
     ```Python
     from rapidtest import Test, unordered
