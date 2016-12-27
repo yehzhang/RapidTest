@@ -24,8 +24,8 @@ class Case(object):
         arguments is a list of arguments to be passed to the method. If the method does not take
         arguments, this could be omitted.
 
-        result is a `rapidtest.Result()` object specifying the asserted returned value of calling
-        the method. If an operation has no such object, the returned value is discarded.
+        result is a `rapidtest.Result()` object specifying the asserted returned value from the
+        method called. If an operation has no such object, the returned value is discarded.
 
     :param bool operation: whether args are of the second format or the first one. Default to
         use the first format.

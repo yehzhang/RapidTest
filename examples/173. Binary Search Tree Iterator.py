@@ -24,14 +24,30 @@ with Test(BSTIterator, operation=True) as test:
          'next', Result(8),
          'hasNext', Result(False))
 
-
     @test
-    def r(i):
-        ops = []
-        root = TreeNode.make_random(i, binary_search=True)
-        ops.append([root])
-        if root:
+    def random_case(i):
+        """
+        :param int i: number of times this function is called starting from 0
+        :return Case:
+        """
+        root = TreeNode.make_random(size=i)
+        return _make_case(root)
+
+    @test(50)
+    def random_case_with_duplicate_nodes(i):
+        root = TreeNode.make_random(size=i, duplicate=True)
+        return _make_case(root)
+
+    def _make_case(root):
+        operations = []
+
+        # Constructor arguments
+        operations.append([root])
+
+        # Methods names and asserted results
+        if root is not None:
             for val in root.inorder():
-                ops.extend(['hasNext', Result(True), 'next', Result(val)])
-        ops.extend(['hasNext', Result(False)])
-        return Case(*ops)
+                operations.extend(['hasNext', Result(True), 'next', Result(val)])
+        operations.extend(['hasNext', Result(False)])
+
+        return Case(*operations)
