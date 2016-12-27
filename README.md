@@ -43,7 +43,7 @@ And that's it. No more object creation or function calls. What the example does 
 
 ### Random testing
 
-Generating random inputs is a painless way to come up with numerous test cases that cover corners of a solution. RapidTest supports this technique through the _`test` decorator_ that takes a user-defined, case-generating function. Let us test the previous solution by generating random cases:
+Generating random inputs is a painless way to come up with numerous test cases that cover corners of a solution. RapidTest supports this technique through the `test` decorator that takes a user-defined, case-generating function. Let us test the previous solution by generating random cases:
 
 ```Python
 # content of do_test.py
@@ -94,12 +94,12 @@ TreeNode(6, (3, (1, 0, 2), (5, 4, #)), (8, 7, 9))
 
 ### Advanced features
 
-- (Using operations)[./advanced_features.md#using-operations] when there are multiple methods to be called.
+- [Using operations](./advanced_features.md#using-operations) when there are multiple methods to be called.
 
 
 ### Other features
 
-- You can use `ListNode` and `TreeNode` in your `solution.py` without first importing them like you did in the LeetCode editor.
+- You can use `ListNode` and `TreeNode` in your `solution.py` directly like you did in the LeetCode editor without first importing them.
 - Sometimes the order of returned elements in a list does not matter. You may specify this situation like:
     ```Python
     from rapidtest import Test, unordered
