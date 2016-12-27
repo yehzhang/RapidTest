@@ -188,21 +188,21 @@ class TreeNode(Reprable):
 
     @classmethod
     @privileged
-    def make_random(cls, num_nodes=100, duplicate=False, binary_search=False):
+    def make_random(cls, size=100, duplicate=False, binary_search=False):
         """Make a tree of random structure and value
 
-        :param int num_nodes: number of nodes in the tree
+        :param int size: number of nodes in the tree
         :param bool duplicate: whether allow nodes with the same value or not
         :param bool binary_search: whether return a binary search tree or simply a binary tree
         :return TreeNode:
         """
-        num_nodes = int(num_nodes)
+        size = int(size)
         if binary_search:
             if duplicate:
                 raise ValueError('A binary search tree does not contain duplicate nodes')
-            vals = [0] * num_nodes  # just a placeholder array
+            vals = [0] * size  # just a placeholder array
         else:
-            vals = randints(num_nodes, unique=not duplicate, max_num=num_nodes - 1)
+            vals = randints(size, unique=not duplicate, max_num=size - 1)
 
         # Randomize structure
         structured_vals = []
