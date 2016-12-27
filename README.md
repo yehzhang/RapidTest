@@ -161,7 +161,7 @@ $ python do_test.py
 Passed all 150 test cases
 ```
 
-What's more, there are some other functions that return random things:
+What's more, there are some other functions that may help generate random inputs:
 
 ```
 >>> TreeNode.make_random(10)
