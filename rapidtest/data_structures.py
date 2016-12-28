@@ -3,7 +3,6 @@ from itertools import count
 from json import loads
 from random import random
 
-from .user_interface import privileged
 from .utils import nop, randbool, randints
 
 
@@ -18,22 +17,10 @@ class Reprable(object):
 
 
 class TreeNode(Reprable):
-    INORDER = 'inorder'
-    PREORDER = 'preorder'
-    POSTORDER = 'postorder'
-
     def __init__(self, x):
         self.val = x
         self.left = None
         self.right = None
-
-    @privileged
-    def __eq__(self, o):
-        return self._eq(o)
-
-    def _eq(self, o):
-        return o and self.val == o.val and (not self.left or self.left._eq(
-            o.left)) and (not self.right or self.right._eq(o.right))
 
     def __str__(self):
         return self._to_string(True)
@@ -49,10 +36,18 @@ class TreeNode(Reprable):
             res = str(self.val)
         return res
 
+
+class SuperTreeNode(TreeNode):
+    INORDER = 'inorder'
+    PREORDER = 'preorder'
+    POSTORDER = 'postorder'
+
+    def __eq__(self, o):
+        return o and self.val == o.val and self.left == o.left and self.right == o.right
+
     def get_val(self):
         return self.val
 
-    @privileged
     def traverse_map(self, function, order=INORDER):
         """Apply function to every node in the given order, and return a list of the results.
 
@@ -102,28 +97,24 @@ class TreeNode(Reprable):
 
         return res
 
-    @privileged
     def inorder(self):
         """
         :return [int]: inorder traversal of nodes' values
         """
-        return self.traverse_map(TreeNode.get_val, self.INORDER)
+        return self.traverse_map(type(self).get_val, self.INORDER)
 
-    @privileged
     def postorder(self):
         """
         :return [int]: postorder traversal of nodes' values
         """
-        return self.traverse_map(TreeNode.get_val, self.POSTORDER)
+        return self.traverse_map(type(self).get_val, self.POSTORDER)
 
-    @privileged
     def preorder(self):
         """
         :return [int]: preorder traversal of nodes' values
         """
-        return self.traverse_map(TreeNode.get_val, self.PREORDER)
+        return self.traverse_map(type(self).get_val, self.PREORDER)
 
-    @privileged
     def flatten(self):
         """Inverse function of TreeNode.from_iterable
 
@@ -147,7 +138,6 @@ class TreeNode(Reprable):
         return vals
 
     @classmethod
-    @privileged
     def from_iterable(cls, vals):
         q_vals = deque(vals)
         if not q_vals:
@@ -177,7 +167,6 @@ class TreeNode(Reprable):
         return root
 
     @classmethod
-    @privileged
     def from_string(cls, vals):
         try:
             vals = loads(vals)
@@ -187,7 +176,6 @@ class TreeNode(Reprable):
         return cls.from_iterable(vals)
 
     @classmethod
-    @privileged
     def make_random(cls, size=100, duplicate=False, binary_search=False):
         """Make a tree of random structure and value
 
@@ -241,10 +229,6 @@ class ListNode(Reprable):
         vals.append(self.NULL)
         return '{}'.format('->'.join(map(str, vals)))
 
-    @privileged
-    def __iter__(self):
-        return self._gen()
-
     def _gen(self):
         """
         :return generator: generator that traverses self
@@ -253,7 +237,19 @@ class ListNode(Reprable):
             yield self.val
             self = self.next
 
-    @privileged
+
+class SuperListNode(ListNode):
+    def __iter__(self):
+        return self._gen()
+
+    def __eq__(self, o):
+        while self and o:
+            if self.val != o.val:
+                return False
+            self = self.next
+            o = o.next
+        return self is o is None
+
     def end(self):
         """
         :return ListNode: last node in the list
@@ -263,7 +259,6 @@ class ListNode(Reprable):
         return self
 
     @classmethod
-    @privileged
     def from_iterable(cls, vals):
         vals = list(vals)
         if not vals:
@@ -275,12 +270,3 @@ class ListNode(Reprable):
             node.next = cls(val)
             node = node.next
         return root
-
-    @privileged
-    def __eq__(self, o):
-        while self and o:
-            if self.val != o.val:
-                return False
-            self = self.next
-            o = o.next
-        return self is o is None

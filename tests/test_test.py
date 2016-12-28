@@ -60,13 +60,3 @@ class TestTest(TestCase):
         with self.assertRaises(ValueError):
             t.run()
         assert_sum_code(t.EXIT_GEN_ERR)
-
-    def test_user_mode(self):
-        class Cheater(object):
-            def run(self):
-                TreeNode([0]).inorder()
-
-        with self.assertRaisesRegexp(RuntimeError, r'Call.*when judging'):
-            t = Test(Cheater)
-            t.add_case(Case(result=None))
-            t.run()

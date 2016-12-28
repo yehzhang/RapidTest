@@ -1,10 +1,30 @@
 # coding=utf-8
 from copy import deepcopy
-from inspect import getmembers, ismethod, isclass
+from importlib import import_module
+from inspect import getmembers, ismethod, isclass, getmodule
 
-from .user_interface import inject_dependency, get_dependency, UserMode
-from .utils import is_iterable, identity, OneTimeSetProperty, sentinel, PRIMITIVE_TYPES as \
-    P_TYPES, get_func
+from .utils import identity, OneTimeSetProperty, sentinel, PRIMITIVE_TYPES as \
+    P_TYPES, get_func, is_sequence
+
+
+def get_dependency():
+    """
+    :return dict, dict: {class_name: class}, {obj_name: obj}. Obj could be anything but class
+    """
+    dependency = {}
+    pkg_name, _ = __name__.rsplit('.', 1)
+    for module_name, obj_names in DEPENDENCY_NAMES.items():
+        module = import_module(module_name, pkg_name)
+        for obj_name in obj_names:
+            obj = getattr(module, obj_name)
+            dependency[obj_name] = obj
+    return dependency
+
+
+DEPENDENCY_NAMES = {
+    '.data_structures': ['TreeNode', 'ListNode'],
+    # __name__: [],
+}
 
 
 class Runnable(object):
@@ -43,16 +63,15 @@ class Executor(object):
     :param callable post_proc:
     :param callable in_place_selector:
     """
-    _injected_targets = set()
-
     PRIMITIVE_TYPES = P_TYPES + tuple(v for v in get_dependency().values() if isclass(v))
+
+    _injected_targets = set()
 
     def __init__(self, init_args, operation_stubs, post_proc=None, in_place_selector=None):
         self.init_args = init_args
         self.operation_stubs = operation_stubs
         self.post_proc = post_proc or identity
         self.in_place_selector = in_place_selector
-        self.environment = UserMode()
 
     def execute(self, target):
         """Execute operations on the target.
@@ -64,12 +83,9 @@ class Executor(object):
             raise ValueError('Target is not a class')
 
         # Inject dependency such as TreeNode into user's solutions
-        if target not in self._injected_targets:
-            inject_dependency(target)
-            self._injected_targets.add(target)
+        self.inject_dependency(target)
 
-        with self.environment:
-            target_instance = target(*self.init_args)
+        target_instance = target(*self.init_args)
 
         # Lazy-executing operations
         ops = (self._execute(stub, target_instance) for stub in self.operation_stubs)
@@ -77,18 +93,17 @@ class Executor(object):
 
     def _execute(self, stub, target_instance):
         """
-        :param OperationStub stub:
+        :param OperationStub stub: the final stub that has all fields filled if possible
         :return OperationOutput:
         """
-        with self.environment:
-            called_func_name, func = self.get_target_method(target_instance, stub.name)
-            args = deepcopy(stub.args)
-            val = func(*args)
+        called_func_name, func = self.get_target_method(target_instance, stub.name)
+        args = deepcopy(stub.args)
+        val = func(*args)
 
-            if stub.collect:
-                if self.in_place_selector:
-                    val = self.in_place_selector(args)
-                val = self.normalize_raw_output(val)
+        if stub.collect:
+            if self.in_place_selector:
+                val = self.in_place_selector(args)
+            val = self.normalize_raw_output(val)
 
         return OperationOutput(called_func_name, stub.args, stub.collect, val)
 
@@ -124,11 +139,24 @@ class Executor(object):
     def _normalize(cls, output):
         if isinstance(output, cls.PRIMITIVE_TYPES) or output is None:
             pass
-        elif is_iterable(output):
+        elif is_sequence(output):
             output = [cls._normalize(o) for o in output]
         else:
             raise RuntimeError('Type of output {} is invalid'.format(type(output)))
         return output
+
+    @classmethod
+    def inject_dependency(cls, target):
+        if target not in cls._injected_targets:
+            cls._injected_targets.add(target)
+        module = getmodule(target)
+        if module is None:
+            return
+
+        dependency = get_dependency()
+        for obj_name, obj in dependency.items():
+            if not hasattr(module, obj_name):
+                setattr(module, obj_name, obj)
 
 
 class OperationStub(object):
@@ -150,8 +178,8 @@ class OperationStub(object):
                                                                                other.collect
 
     def __str__(self):
-        repr_res = ' -> ?' if self.collect else ''
-        return '{}({}){}'.format(self.name, OperationOutput.join_repr(self.args), repr_res)
+        repr_output = ' -> ?' if self.collect else ''
+        return OperationOutput.format(self.name, self.args, repr_output)
 
 
 class Output(object):
@@ -190,8 +218,6 @@ class OperationOutput(Output):
             self.result = None
 
     def __str__(self):
-        repr_args = self.join_repr(self.args)
-
         if self.collect:
             if self.asserted_val is sentinel:
                 repr_comp = '?'
@@ -200,8 +226,12 @@ class OperationOutput(Output):
             repr_output = ' -> {} {}'.format(repr(self.val), repr_comp)
         else:
             repr_output = ''
+        return self.format(self.func_name, self.args, repr_output)
 
-        return '{}({}){}'.format(self.func_name, repr_args, repr_output)
+    @classmethod
+    def format(cls, func_name, args, repr_output):
+        repr_args = ', '.join(map(repr, args))
+        return '{}({}){}'.format(func_name, repr_args, repr_output)
 
     def get_val(self):
         if not self.collect:
@@ -213,10 +243,6 @@ class OperationOutput(Output):
         self.asserted_val = asserted_val
         self.result = val == self.asserted_val
         return self.result
-
-    @staticmethod
-    def join_repr(strs):
-        return ', '.join(map(repr, strs))
 
 
 class ExecutionOutput(Output):
