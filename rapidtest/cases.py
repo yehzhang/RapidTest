@@ -79,8 +79,8 @@ class Case(object):
     def process_params(cls, **kwargs):
         invalid_kwargs = set(kwargs) - cls.BIND_KEYS
         if invalid_kwargs:
-            invalid_kwargs = ', '.join(map(repr, invalid_kwargs))
-            raise TypeError('Test parameters do not take {}'.format(invalid_kwargs))
+            repr_kws = natural_join('and', map(repr, invalid_kwargs))
+            raise TypeError('Test parameters do not take {}'.format(repr_kws))
         return {k: getattr(cls, 'process_' + k, identity)(v) for k, v in kwargs.items()}
 
     @classmethod
@@ -140,106 +140,15 @@ class Case(object):
     @classmethod
     def process_args(cls, args, operation):
         """
-        :return (any, ...), [OperationStub], bool: the first returned value is arguments
-            to be passed to the constructor of target. The second returned value is a list of
-            `OperationStub`. The third returned value is a bool indicating whether `collect` is
-            used in the operations or not
+        :return (any, ...), [OperationStub]: the first returned value is arguments
+            to be passed to the constructor of target
         """
-        init_args = []
-        stubs = []
-
         if operation:
-            def push_stub():
-                stubs.append(curr_stub[0])
-                curr_stub[0] = OperationStub()
-
-            def get_symbol():
-                if isinstance(item, Result):
-                    symbols = RSLT,
-                elif is_string(item):
-                    symbols = NAME, NEXT_NAME
-                elif is_sequence(item):
-                    symbols = INIT_ARGS, ARGS
-                else:
-                    symbols = []
-                # assert at most one of symbols is in state
-                for s in symbols:
-                    if s in state:
-                        return s
-
-            def exec_empty():
-                raise ValueError('No args is specified')
-
-            def handle_init_args():
-                init_args[:] = item
-
-            def handle_next_name():
-                push_stub()
-                handle_name()
-
-            def handle_name():
-                curr_stub[0].name = item
-
-            def handle_result():
-                curr_stub[0].collect = True
-                push_stub()
-
-            def handle_args():
-                curr_stub[0].args = item
-
-            END = object()
-            NAME = 'name'
-            NEXT_NAME = 'next_name'
-            INIT_ARGS = 'init_args'
-            ARGS = 'args'
-            RSLT = 'result'
-            TRANS = {
-                (INIT_ARGS, NAME):       ((NAME,), (NEXT_NAME, ARGS, RSLT), exec_empty),
-                (NAME,):                 ((NEXT_NAME, ARGS, RSLT), nop),
-                (NEXT_NAME, ARGS, RSLT): (
-                    (NEXT_NAME, ARGS, RSLT), (NEXT_NAME, RSLT), (NAME,), push_stub),
-                (NEXT_NAME, RSLT):       ((NEXT_NAME, ARGS, RSLT), (NAME,), push_stub),
-            }
-
-            state = INIT_ARGS, NAME
-            curr_stub = [OperationStub()]
-            args = list(args)
-            args.append(END)
-
-            for item in args:
-                next_states = TRANS.get(state)
-                assert next_states is not None, 'Invalid state'
-
-                if item is END:
-                    handler = next_states[-1]
-                else:
-                    symbol = get_symbol()
-                    if symbol is None:
-                        # symbol that is not accepted in current state
-                        REPRS = {
-                            NAME:      'method name',
-                            NEXT_NAME: 'method name',
-                            INIT_ARGS: '__init__ arguments',
-                            ARGS:      'arguments',
-                            RSLT:      'result object',
-                        }
-                        expected = natural_join('or', map(REPRS.get, state))
-                        raise ValueError('expected {}, got {}'.format(expected, repr(item)))
-
-                    handler = locals()['handle_' + symbol]
-                    state = next_states[state.index(symbol)]
-
-                handler()
-
-            if not stubs:
-                raise ValueError('Args contains no method call')
-
+            init_args, stubs = ArgsParser().parse(args)
         else:
-            stubs.append(OperationStub(None, args, True))
-
-        results = [item for item in args if isinstance(item, Result)]
-
-        return tuple(init_args), stubs, results
+            init_args = ()
+            stubs = [OperationStub(None, args, True)]
+        return init_args, stubs
 
     def _initialize(self, default_params=None):
         """Initialize parameters of this case.
@@ -261,13 +170,14 @@ class Case(object):
 
         # Create executor
         operation = self.params.get(self.BIND_OPERATION, False)
-        init_args, stubs, result_objects = self.process_args(self.args, operation)
+        init_args, stubs = self.process_args(self.args, operation)
         post_proc = self.params.get(self.BIND_POST_PROCESSING)
         in_place_selector = self.params.get(self.BIND_IN_PLACE)
         self.executor = Executor(init_args, stubs, post_proc, in_place_selector)
 
-        # Validate parameters
+        # Validate operation, result, and Result()
         bound_result = self.params.get(self.BIND_RESULT, sentinel)
+        result_objects = [item for item in self.args if isinstance(item, Result)]
         if result_objects and bound_result is not sentinel:
             raise RuntimeError('Both Result() object and result= keyword is specified')
         if isclass(bound_result):
@@ -316,3 +226,98 @@ class Result(Reprable):
 
     def __eq__(self, other):
         return isinstance(other, type(self)) and self.val == other.val
+
+
+class ArgsParser(object):
+    NAME = 'name'
+    NEXT_NAME = 'next_name'
+    INIT_ARGS = 'init_args'
+    ARGS = 'args'
+    RSLT = 'result'
+
+    START_STATE = INIT_ARGS, NAME
+    TRANS = {
+        (INIT_ARGS, NAME):       ((NAME,), (NEXT_NAME, ARGS, RSLT), 'empty_args'),
+        (NAME,):                 ((NEXT_NAME, ARGS, RSLT), ''),
+        (NEXT_NAME, ARGS, RSLT): (
+            (NEXT_NAME, ARGS, RSLT), (NEXT_NAME, RSLT), (NAME,), 'push_stub'),
+        (NEXT_NAME, RSLT):       ((NEXT_NAME, ARGS, RSLT), (NAME,), 'push_stub'),
+    }
+
+    REPRS = {
+        NAME:      'method name',
+        NEXT_NAME: 'method name',
+        INIT_ARGS: '__init__ arguments',
+        ARGS:      'arguments',
+        RSLT:      'result object',
+    }
+
+    def push_stub(self):
+        self.stubs.append(self.curr_stub)
+        self.curr_stub = OperationStub()
+
+    @classmethod
+    def get_symbol(cls, item, state):
+        if isinstance(item, Result):
+            symbols = cls.RSLT,
+        elif is_string(item):
+            symbols = cls.NAME, cls.NEXT_NAME
+        elif is_sequence(item):
+            symbols = cls.INIT_ARGS, cls.ARGS
+        else:
+            symbols = []
+        # assert at most one of symbols is in state
+        for s in symbols:
+            if s in state:
+                return s
+
+    def empty_args(self):
+        raise ValueError('No args is specified')
+
+    def handle_init_args(self):
+        self.init_args = self.item
+
+    def handle_next_name(self):
+        self.push_stub()
+        self.handle_name()
+
+    def handle_name(self):
+        self.curr_stub.name = self.item
+
+    def handle_result(self):
+        self.curr_stub.collect = True
+        self.push_stub()
+
+    def handle_args(self):
+        self.curr_stub.args = self.item
+
+    def parse(self, args):
+        self.init_args = ()
+        self.stubs = []
+        self.state = self.START_STATE
+        self.curr_stub = OperationStub()
+
+        for item in args:
+            self.item = item
+
+            symbol = self.get_symbol(item, self.state)
+            if symbol is None:
+                # symbol that is not accepted in current self.state
+                expected = natural_join('or', map(self.REPRS.get, self.state))
+                raise ValueError('expected {}, got {}'.format(expected, repr(item)))
+
+            handler_name = 'handle_' + symbol
+            getattr(self, handler_name)()
+
+            next_states = self.TRANS[self.state]
+            self.state = next_states[self.state.index(symbol)]
+
+        end_handler_name = self.TRANS[self.state][-1]
+        getattr(self, end_handler_name, nop)()
+
+        if not self.stubs:
+            raise ValueError('Args contains no method call')
+
+        ret = tuple(self.init_args), self.stubs
+        del self.init_args, self.stubs, self.state, self.curr_stub
+        return ret

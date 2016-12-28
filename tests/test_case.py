@@ -10,7 +10,7 @@ class TestCase_(TestCase):
         c = Case()
 
         res = c.process_args([1, 2, 3], False)
-        self.assertEqual(res, ((), [OperationStub(None, [1, 2, 3], True)], []))
+        self.assertEqual(res, ((), [OperationStub(None, [1, 2, 3], True)]))
 
         res = c.process_args([
             ['a', 2, 'c'],
@@ -30,7 +30,7 @@ class TestCase_(TestCase):
             OperationStub('pop', collect=True),
             OperationStub('push', [[4, 5]], True),
             OperationStub('len'),
-        ], [Result(1), Result('d'), Result([0])]))
+        ]))
 
         STRS = [
             ([], r'No.*is specified'),
@@ -60,6 +60,12 @@ class TestCase_(TestCase):
         for args, pat in STRS:
             with self.assertRaisesRegexp(ValueError, pat):
                 c.process_args(args, True)
+
+        with self.assertRaisesRegexp(ValueError, r'[nN]o args'):
+            c.process_args([], True)
+
+        with self.assertRaisesRegexp(ValueError, r'no method call'):
+            c.process_args([[]], True)
 
     def test__initialize(self):
         with self.assertRaisesRegexp(RuntimeError, r'Target.*not specified'):
