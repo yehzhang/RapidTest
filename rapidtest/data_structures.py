@@ -7,16 +7,19 @@ from .utils import nop, randbool, randints
 
 
 class Reprable(object):
+    NAME = None
     NULL = '#'
 
     def __repr__(self):
-        return '{}({})'.format(type(self).__name__, self)
+        return '{}({})'.format(self.NAME or type(self).__name__, self)
 
     def __str__(self):
         raise NotImplementedError
 
 
 class TreeNode(Reprable):
+    NAME = 'TreeNode'
+
     def __init__(self, x):
         self.val = x
         self.left = None
@@ -220,6 +223,8 @@ class SuperTreeNode(TreeNode):
 
 
 class ListNode(Reprable):
+    NAME = 'ListNode'
+
     def __init__(self, x):
         self.val = x
         self.next = None
@@ -270,3 +275,8 @@ class SuperListNode(ListNode):
             node.next = cls(val)
             node = node.next
         return root
+
+    @classmethod
+    def make_random(cls, size=100, duplicate=False):
+        vals = randints(size, unique=not duplicate, max_num=size - 1)
+        return cls.from_iterable(vals)
