@@ -14,11 +14,11 @@ def _set_test_class():
         if file:
             file.close()
 
-    def get_method(module_name, module_tuple):
-        def _test(self):
+    def make_method(module_name, module_tuple):
+        def _m(self):
             _load_module(module_name, *module_tuple)
 
-        return _test
+        return _m
 
     sols_module_name = 'solutions'
     _load_module(sols_module_name, *find_module(sols_module_name, [EXAMPLES_PATH]))
@@ -36,7 +36,7 @@ def _set_test_class():
 
         func_name = module_name.replace(' ', '_').replace('.', '').lower()
         func_name = 'test_' + ''.join(c for c in func_name if c.isalnum() or c == '_')
-        attrs[func_name] = get_method(module_name, module_tuple)
+        attrs[func_name] = make_method(module_name, module_tuple)
 
     class_name = 'TestByExamples'
     globals()[class_name] = type(class_name, (TestCase,), attrs)

@@ -1,8 +1,9 @@
+from random import randint
 from unittest import TestCase
 
 from rapidtest import Case, Result
 from rapidtest.executors import Operation, Operations
-from rapidtest.utils import nop
+from rapidtest.utils import nop, identity, randints
 
 
 class TestCase_(TestCase):
@@ -95,3 +96,34 @@ class TestCase_(TestCase):
 
         with self.assertRaisesRegexp(RuntimeError, r'object.*not accepted'):
             Case('append', Result(2), target=nop)._initialize()
+
+    def test_preprocess_in_place(self):
+        f = Case.preprocess_in_place(True)
+        self.assertEqual(f, identity)
+
+        f = Case.preprocess_in_place(False)
+        self.assertIsNone(f)
+
+        for i in range(1, 100):
+            args = randints(i, max_num=i * 100)
+
+            idx = randint(0, i - 1)
+            f = Case.preprocess_in_place(idx)
+            self.assertEqual(f(args), args[idx])
+
+            indices = randints(randint(1, i), unique=True, max_num=i - 1)
+            f = Case.preprocess_in_place(indices)
+            self.assertEqual(f(args), [args[idx] for idx in indices])
+
+        with self.assertRaises(TypeError):
+            Case.preprocess_in_place('123')
+        with self.assertRaises(TypeError):
+            Case.preprocess_in_place(['123'])
+        with self.assertRaises(TypeError):
+            Case.preprocess_in_place('')
+        with self.assertRaises(TypeError):
+            Case.preprocess_in_place(1.1)
+        with self.assertRaises(TypeError):
+            Case.preprocess_in_place([1.1])
+        with self.assertRaises(ValueError):
+            Case.preprocess_in_place([])
