@@ -1,6 +1,4 @@
-from inspect import isclass
-
-from .executors import make_target, Operation, Operations, ExecutorStub
+from .executors import Operation, Operations, Target
 from .utils import is_iterable, identity, natural_join, nop, is_sequence, sentinel, is_string, \
     Sentinel
 
@@ -30,7 +28,7 @@ class Case(object):
     :param bool operation: whether args are of the second format or the first one. Default to
         use the first format.
 
-    :param callable|ExecutorStub target: a function or class to be tested. If it is a class and
+    :param callable|Target target: a function or class to be tested. If it is a class and
         `operation` is False, the only public method will be called, if any.
         Alternatively target can be a value returned by make_target().
         # TODO support other languages
@@ -87,8 +85,8 @@ class Case(object):
 
     @classmethod
     def preprocess_target(cls, target):
-        if not isinstance(target, ExecutorStub):
-            target = make_target(target)
+        if not isinstance(target, Target):
+            target = Target(target)
         return target
 
     @classmethod
@@ -186,7 +184,7 @@ class Case(object):
         result_objects = [item for item in self.args if isinstance(item, Result)]
         if result_objects and bound_result is not sentinel:
             raise RuntimeError('Both Result() object and result= keyword is specified')
-        if isinstance(bound_result, ExecutorStub):
+        if isinstance(bound_result, Target):
             # Result is another target
             result_executor = bound_result.complete(post_proc=post_proc, in_place=in_place)
             # At least collect something
@@ -199,8 +197,8 @@ class Case(object):
                 # Used Result() objects.
                 if bound_result is not sentinel:
                     raise RuntimeError(
-                        'result= keyword can only be a target when operation is True. You may want to '
-                        'use Result() object')
+                        'result= keyword can only be a target when operation is True. You may '
+                        'want to use Result() object')
                 if not result_objects:
                     raise RuntimeError('Result() object is not specified when operation is True')
                 # Turn them into plain values
@@ -209,8 +207,8 @@ class Case(object):
                 # Used a plain value
                 if result_objects:
                     raise RuntimeError(
-                        'Result() object is not accepted when operation is False. Please use result= '
-                        'keyword')
+                        'Result() object is not accepted when operation is False. Please use '
+                        'result= keyword')
                 if bound_result is sentinel:
                     raise RuntimeError('result is not specified')
                 result_vals = [bound_result]
