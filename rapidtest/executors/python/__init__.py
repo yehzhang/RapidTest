@@ -1,1 +1,2 @@
-from .executors import ClassExecutor, FunctionExecutor, get_dependencies
+from .executors import ClassExecutor, FunctionExecutor
+from .dependencies import get_dependencies

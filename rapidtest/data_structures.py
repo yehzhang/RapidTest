@@ -3,37 +3,8 @@ from itertools import count
 from json import loads
 from random import random
 
-from .utils import nop, randbool, randints, Reprable
-
-
-class Node(Reprable):
-    NULL = '#'
-
-    def __str__(self):
-        raise NotImplementedError
-
-
-class TreeNode(Node):
-    NAME = 'TreeNode'
-
-    def __init__(self, x):
-        self.val = x
-        self.left = None
-        self.right = None
-
-    def __str__(self):
-        return self._to_string(True)
-
-    def _to_string(self, top_level=False):
-        if self.left or self.right:
-            str_left = self.left._to_string() if self.left else self.NULL
-            str_right = self.right._to_string() if self.right else self.NULL
-            res = '{}, {}, {}'.format(self.val, str_left, str_right)
-            if not top_level:
-                res = '({})'.format(res)
-        else:
-            res = str(self.val)
-        return res
+from .executors.python.dependencies import TreeNode, ListNode
+from .utils import nop, randbool, randints
 
 
 class SuperTreeNode(TreeNode):
@@ -216,27 +187,6 @@ class SuperTreeNode(TreeNode):
                 node.traverse_map(_repl_val, cls.INORDER)
 
         return node
-
-
-class ListNode(Node):
-    NAME = 'ListNode'
-
-    def __init__(self, x):
-        self.val = x
-        self.next = None
-
-    def __str__(self):
-        vals = list(self._gen())
-        vals.append(self.NULL)
-        return '{}'.format('->'.join(map(str, vals)))
-
-    def _gen(self):
-        """
-        :return generator: generator that traverses self
-        """
-        while self:
-            yield self.val
-            self = self.next
 
 
 class SuperListNode(ListNode):

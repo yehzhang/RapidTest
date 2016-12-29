@@ -1,28 +1,8 @@
 from copy import deepcopy
-from importlib import import_module
 from inspect import isclass, getmodule, getmembers, ismethod
 
+from .dependencies import get_dependencies
 from ..common import BaseExecutor, ExecutionOutput, OperationOutput
-
-
-def get_dependencies():
-    """
-    :return dict, dict: {class_name: class}, {obj_name: obj}. Obj could be anything but class
-    """
-    dependencies = {}
-    pkg_name, _ = __name__.rsplit('.', 1)
-    for module_name, obj_names in PY_DEPENDENCY_NAMES.items():
-        module = import_module(module_name, pkg_name)
-        for obj_name in obj_names:
-            obj = getattr(module, obj_name)
-            dependencies[obj_name] = obj
-    return dependencies
-
-
-PY_DEPENDENCY_NAMES = {
-    'rapidtest.data_structures': ['TreeNode', 'ListNode'],
-    # __name__: [],
-}
 
 
 class NativeExecutor(BaseExecutor):
