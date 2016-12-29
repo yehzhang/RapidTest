@@ -125,8 +125,10 @@ class Case(object):
                 return identity
         elif isinstance(in_place, int):
             return lambda args: _safe_get(args, in_place)
-        elif is_iterable(in_place):
+        elif is_sequence(in_place):
             in_place = list(in_place)
+            if not in_place:
+                raise ValueError('In_place cannot be empty')
             if not all(isinstance(i, int) for i in in_place):
                 raise TypeError('One element of in_place is not an integer')
             return lambda args: [_safe_get(args, i) for i in in_place]
@@ -158,16 +160,14 @@ class Case(object):
         params.update(self.params)
         self.params = params
 
-        # Process post_proc and in_place
+        # Create executor
         post_proc = self.params.get(self.BIND_POST_PROC)
         selector = self.params.get(self.BIND_IN_PLACE_SELECTOR)
-
-        # Create executor
-        stub = self.params.get(self.BIND_EXECUTOR_STUB)
-        if stub is None:
+        target = self.params.get(self.BIND_EXECUTOR_STUB)
+        if target is None:
             raise RuntimeError('Target was specified in neither Test nor Case')
         is_operation = self.params.get(self.BIND_IS_OPERATION, False)
-        self.executor = stub.complete(post_proc=post_proc, in_place_selector=selector)
+        self.executor = target.complete(post_proc=post_proc, in_place_selector=selector)
 
         # Process operation, result, and Result()
         self.operations = self.process_args(self.args, is_operation)

@@ -100,7 +100,6 @@ TreeNode(6, (3, (1, 0, 2), (5, 4, #)), (8, 7, 9))
 ### Other features
 
 - You can use `ListNode` and `TreeNode` in your `solution.py` directly like you did in the LeetCode editor without first importing them.
-- In case a problem requires modifying arguments in place, you can specify this situation like `with Test(in_place=True)` so that all returned values are replaced by their corresponding arguments. When not all arguments are needed, you may pass `in_place` with an integer or a list of integers, each of which represents the index of an argument to replace.   
 - Sometimes the order of returned elements in a list does not matter. You may specify this situation like:
     ```Python
     from rapidtest import Test, unordered
@@ -110,6 +109,7 @@ TreeNode(6, (3, (1, 0, 2), (5, 4, #)), (8, 7, 9))
         pass
     ```
 - In fact, post_proc can be a post-processing function or a list of functions such that they are applied to each returned value before it is compared.
+- In case a problem requires modifying arguments in place, you can specify this situation like `with Test(in_place=True)` so that all returned values are replaced by their corresponding arguments. When not all arguments are needed, you may pass `in_place` with an integer or a list of integers, each of which represents the index of an argument to replace.   
 - The `test` decorator can be used like `@test(200)` to specify the number of times to call the decorated function.
 
 
