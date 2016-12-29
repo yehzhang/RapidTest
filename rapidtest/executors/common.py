@@ -6,20 +6,20 @@ class BaseExecutor(object):
     PRIMITIVE_TYPES = P_TYPES
 
     def __init__(self, **kwargs):
-        self.in_place = False
+        self.in_place_selector = None
         self.post_proc = identity
 
         self.initialize(**kwargs)
 
-    def initialize(self, post_proc=None, in_place=None):
+    def initialize(self, post_proc=None, in_place_selector=None):
         """
         :param callable post_proc:
-        :param bool in_place:
+        :param callable in_place_selector:
         """
         if post_proc is not None:
             self.post_proc = post_proc
-        if in_place is not None:
-            self.in_place = in_place
+        if in_place_selector is not None:
+            self.in_place_selector = in_place_selector
 
     def execute(self, operations):
         """

@@ -28,8 +28,8 @@ class NativeExecutor(BaseExecutor):
         args = deepcopy(op.args)
         val = func(*args)
         if op.collect:
-            if self.in_place:
-                val = args
+            if self.in_place_selector:
+                val = self.in_place_selector(args)
             val = self.normalize_raw_output(val)
         else:
             val = None

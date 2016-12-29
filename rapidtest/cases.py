@@ -52,12 +52,12 @@ class Case(object):
     current_test = None
 
     BIND_EXECUTOR_STUB = 'target'
-    BIND_POST_PROC_FUNCS = 'post_proc'
+    BIND_POST_PROC = 'post_proc'
     BIND_RESULT = 'result'
     BIND_IN_PLACE_SELECTOR = 'in_place'
     BIND_IS_OPERATION = 'operation'
     BIND_KEYS = frozenset(
-        [BIND_EXECUTOR_STUB, BIND_POST_PROC_FUNCS, BIND_RESULT, BIND_IN_PLACE_SELECTOR,
+        [BIND_EXECUTOR_STUB, BIND_POST_PROC, BIND_RESULT, BIND_IN_PLACE_SELECTOR,
          BIND_IS_OPERATION])
 
     def __init__(self, *args, **kwargs):
@@ -99,7 +99,12 @@ class Case(object):
                 raise TypeError('Some post-processing is not callable')
         else:
             raise TypeError('Post_proc is not of type callable or iterable')
-        return post_procs
+
+        def chain(x):
+            for f in post_procs:
+                x = f(x)
+            return x
+        return chain
 
     @classmethod
     def preprocess_result(cls, result):
@@ -154,29 +159,15 @@ class Case(object):
         self.params = params
 
         # Process post_proc and in_place
-        post_proc_funcs = self.params.get(self.BIND_POST_PROC_FUNCS, [])
-
+        post_proc = self.params.get(self.BIND_POST_PROC)
         selector = self.params.get(self.BIND_IN_PLACE_SELECTOR)
-        if selector:
-            post_proc_funcs = [selector] + post_proc_funcs
-            in_place = True
-        else:
-            in_place = False
-
-        if post_proc_funcs:
-            def post_proc(x):
-                for f in post_proc_funcs:
-                    x = f(x)
-                return x
-        else:
-            post_proc = None
 
         # Create executor
         stub = self.params.get(self.BIND_EXECUTOR_STUB)
         if stub is None:
             raise RuntimeError('Target was specified in neither Test nor Case')
         is_operation = self.params.get(self.BIND_IS_OPERATION, False)
-        self.executor = stub.complete(post_proc=post_proc, in_place=in_place)
+        self.executor = stub.complete(post_proc=post_proc, in_place_selector=selector)
 
         # Process operation, result, and Result()
         self.operations = self.process_args(self.args, is_operation)
@@ -186,7 +177,7 @@ class Case(object):
             raise RuntimeError('Both Result() object and result= keyword is specified')
         if isinstance(bound_result, Target):
             # Result is another target
-            result_executor = bound_result.complete(post_proc=post_proc, in_place=in_place)
+            result_executor = bound_result.complete(post_proc=post_proc, in_place_selector=selector)
             # At least collect something
             if not any(op.collect for op in self.operations):
                 for op in self.operations:
