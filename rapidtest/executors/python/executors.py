@@ -1,8 +1,9 @@
 from copy import deepcopy
-from inspect import isclass, getmodule, getmembers, ismethod
+from inspect import isclass, getmembers, ismethod, getmodule
 
 from .dependencies import get_dependencies
-from ..common import BaseExecutor, ExecutionOutput, OperationOutput
+from ..common_executors import BaseExecutor
+from ..outputs import ExecutionOutput, OperationOutput
 
 
 class NativeExecutor(BaseExecutor):
@@ -19,7 +20,8 @@ class NativeExecutor(BaseExecutor):
 
     def execute(self, operations):
         # Lazy-executing operations
-        return ExecutionOutput(self._execute(*t) for t in self._get_tasks(operations))
+        funcs = self.get_functions(operations)
+        return ExecutionOutput(self._execute(*t) for t in zip(funcs, operations))
 
     def _execute(self, func, op):
         """
@@ -32,10 +34,10 @@ class NativeExecutor(BaseExecutor):
         val = self.normalize_raw_output(val)
         return OperationOutput(op.name, op.args, op.collect, val)
 
-    def _get_tasks(self, operations):
+    def get_functions(self, operations):
         """
         :param Operations operations:
-        :return [(callable, Operation)]:
+        :return [callable]:
         """
         raise NotImplementedError
 
@@ -63,16 +65,16 @@ class ClassExecutor(NativeExecutor):
         if not isclass(self.target):
             raise TypeError('Target is not a class')
 
-    def _get_tasks(self, operations):
+    def get_functions(self, operations):
         # Extract methods to call
-        tasks = []
+        funcs = []
 
         target_instance = self.target(*operations.init_args)
         for op in operations:
             op.name, func = self.get_target_method(target_instance, op.name)
-            tasks.append((func, op))
+            funcs.append(func)
 
-        return tasks
+        return funcs
 
     @classmethod
     def get_target_method(cls, target_instance, name=None):
@@ -109,7 +111,7 @@ class FunctionExecutor(NativeExecutor):
         if not callable(self.target):
             raise TypeError('Target is not a function')
 
-    def _get_tasks(self, operations):
+    def get_functions(self, operations):
         if operations.init_args:
             raise ValueError('Target cannot be instantiated')
 
@@ -122,4 +124,4 @@ class FunctionExecutor(NativeExecutor):
             else:
                 op.name = func_name
 
-        return [(self.target, op) for op in operations]
+        return [self.target for _ in operations]

@@ -3,11 +3,11 @@ from itertools import count
 from json import loads
 from random import random
 
-from .executors.python.dependencies import TreeNode, ListNode
+from .executors.python.dependencies import TreeNode as BaseTreeNode, ListNode as BaseListNode
 from .utils import nop, randbool, randints
 
 
-class SuperTreeNode(TreeNode):
+class TreeNode(BaseTreeNode):
     INORDER = 'inorder'
     PREORDER = 'preorder'
     POSTORDER = 'postorder'
@@ -189,7 +189,7 @@ class SuperTreeNode(TreeNode):
         return node
 
 
-class SuperListNode(ListNode):
+class ListNode(BaseListNode):
     def __iter__(self):
         return self._gen()
 
