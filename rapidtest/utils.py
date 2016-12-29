@@ -170,12 +170,22 @@ class OneTimeSetProperty(object):
         raise AttributeError('Cannot delete attribute')
 
 
-class Sentinel(object):
-    def __init__(self, _str):
-        self.str = _str
+class Reprable(object):
+    NAME = None
+
+    def __repr__(self):
+        return '{}({})'.format(self.NAME or type(self).__name__, self)
 
     def __str__(self):
-        return self.str
+        raise NotImplementedError
+
+
+class Sentinel(Reprable):
+    def __init__(self, val):
+        self.val = val
+
+    def __str__(self):
+        return str(self.val)
 
 
 def natural_join(last_sep, strs):
@@ -199,11 +209,3 @@ def powerset(iterable):
     """powerset([1,2,3]) --> () (1,) (2,) (3,) (1,2) (1,3) (2,3) (1,2,3)"""
     s = list(iterable)
     return chain.from_iterable(combinations(s, r) for r in range(len(s) + 1))
-
-
-def get_func(obj, name):
-    func = getattr(obj, name)
-    if not callable(func):
-        raise RuntimeError(
-            "{} object's attribute {} is not callable".format(repr(type(obj).__name__), repr(name)))
-    return func

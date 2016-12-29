@@ -31,8 +31,8 @@ class Test(object):
         self.closed = False
 
         if target is not None:
-            kwargs[Case.BIND_TARGET_CLASS] = target
-        self.bound_params = Case.process_params(**kwargs)
+            kwargs[Case.BIND_EXECUTOR_STUB] = target
+        self.bound_params = Case.preprocess_params(**kwargs)
 
     def __del__(self):
         self.close()

@@ -3,21 +3,17 @@ from itertools import count
 from json import loads
 from random import random
 
-from .utils import nop, randbool, randints
+from .utils import nop, randbool, randints, Reprable
 
 
-class Reprable(object):
-    NAME = None
+class Node(Reprable):
     NULL = '#'
-
-    def __repr__(self):
-        return '{}({})'.format(self.NAME or type(self).__name__, self)
 
     def __str__(self):
         raise NotImplementedError
 
 
-class TreeNode(Reprable):
+class TreeNode(Node):
     NAME = 'TreeNode'
 
     def __init__(self, x):
@@ -222,7 +218,7 @@ class SuperTreeNode(TreeNode):
         return node
 
 
-class ListNode(Reprable):
+class ListNode(Node):
     NAME = 'ListNode'
 
     def __init__(self, x):
@@ -275,8 +271,3 @@ class SuperListNode(ListNode):
             node.next = cls(val)
             node = node.next
         return root
-
-    @classmethod
-    def make_random(cls, size=100, duplicate=False):
-        vals = randints(size, unique=not duplicate, max_num=size - 1)
-        return cls.from_iterable(vals)

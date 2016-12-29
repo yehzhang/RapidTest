@@ -1,7 +1,7 @@
 from unittest import TestCase
 
 from rapidtest import Case, Result
-from rapidtest.executors import OperationStub
+from rapidtest.executors import Operation, Operations
 from rapidtest.utils import nop
 
 
@@ -10,7 +10,7 @@ class TestCase_(TestCase):
         c = Case()
 
         res = c.process_args([1, 2, 3], False)
-        self.assertEqual(res, ((), [OperationStub(None, [1, 2, 3], True)]))
+        self.assertEqual(res, Operations((), [Operation(None, [1, 2, 3], True)]))
 
         res = c.process_args([
             ['a', 2, 'c'],
@@ -22,14 +22,14 @@ class TestCase_(TestCase):
             'push', [[4, 5]], Result([0]),
             'len'
         ], True)
-        self.assertEqual(res, (('a', 2, 'c'), [
-            OperationStub('push', [1, 2, 3], False),
-            OperationStub('pop', collect=True),
-            OperationStub('count'),
-            OperationStub('count'),
-            OperationStub('pop', collect=True),
-            OperationStub('push', [[4, 5]], True),
-            OperationStub('len'),
+        self.assertEqual(res, Operations(('a', 2, 'c'), [
+            Operation('push', [1, 2, 3], False),
+            Operation('pop', collect=True),
+            Operation('count'),
+            Operation('count'),
+            Operation('pop', collect=True),
+            Operation('push', [[4, 5]], True),
+            Operation('len'),
         ]))
 
         STRS = [
@@ -68,27 +68,30 @@ class TestCase_(TestCase):
             c.process_args([[]], True)
 
     def test__initialize(self):
-        with self.assertRaisesRegexp(RuntimeError, r'Target.*not specified'):
-            Case('a', Result(1), operation=True)._initialize()
+        with self.assertRaisesRegexp(RuntimeError, r'Target.*specified.*neither'):
+            Case('append', Result(1), operation=True)._initialize()
 
         with self.assertRaisesRegexp(RuntimeError, r'Both'):
-            Case('a', Result(1), result=1, target=nop)._initialize()
+            Case('append', Result(1), result=1, target=nop)._initialize()
         with self.assertRaisesRegexp(RuntimeError, r'Both'):
-            Case('a', Result(2), operation=True, result=None, target=nop)._initialize()
+            Case('append', Result(2), operation=True, result=None, target=nop)._initialize()
 
-        Case('a', result=1, target=nop)._initialize()
+        Case('append', result=1, target=nop)._initialize()
 
         with self.assertRaisesRegexp(RuntimeError, r'object.*not specified'):
-            Case('a', operation=True, target=nop)._initialize()
+            Case('append', operation=True, target=nop)._initialize()
 
         with self.assertRaisesRegexp(RuntimeError, r'result.*not specified'):
-            Case('a', target=nop)._initialize()
+            Case('append', target=nop)._initialize()
 
-        Case('a', Result(2), operation=True, target=nop)._initialize()
+        Case('append', Result(2), operation=True, target=nop)._initialize()
 
         with self.assertRaisesRegexp(RuntimeError, r'keyword.*target.*operation is True'):
-            Case('a', operation=True, result=None, target=nop)._initialize()
-        Case('a', operation=True, result=list, target=nop)._initialize()
+            Case('append', operation=True, result=None, target=nop)._initialize()
+        Case('append', operation=True, result=list, target=nop)._initialize()
+
+        with self.assertRaises(AttributeError):
+            Case('a', operation=True, result=list, target=nop)._initialize()
 
         with self.assertRaisesRegexp(RuntimeError, r'object.*not accepted'):
-            Case('a', Result(2), target=nop)._initialize()
+            Case('append', Result(2), target=nop)._initialize()

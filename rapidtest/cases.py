@@ -1,8 +1,8 @@
 from inspect import isclass
 
-from .data_structures import Reprable
-from .executors import Executor, OperationStub, Runnable
-from .utils import is_iterable, identity, natural_join, nop, is_sequence, sentinel, is_string
+from .executors import make_target, Operation, Operations, ExecutorStub
+from .utils import is_iterable, identity, natural_join, nop, is_sequence, sentinel, is_string, \
+    Sentinel
 
 
 class Case(object):
@@ -30,8 +30,9 @@ class Case(object):
     :param bool operation: whether args are of the second format or the first one. Default to
         use the first format.
 
-    :param callable target: a function or class to be tested. If it is a class and `operation` is
-        False, the only public method will be called, if any.
+    :param callable|ExecutorStub target: a function or class to be tested. If it is a class and
+        `operation` is False, the only public method will be called, if any.
+        Alternatively target can be a value returned by make_target().
         # TODO support other languages
 
     :param callable|iterable post_proc: a post-processing function that takes a returned value and
@@ -52,13 +53,14 @@ class Case(object):
 
     current_test = None
 
-    BIND_TARGET_CLASS = 'target'
-    BIND_POST_PROCESSING = 'post_proc'
+    BIND_EXECUTOR_STUB = 'target'
+    BIND_POST_PROC_FUNCS = 'post_proc'
     BIND_RESULT = 'result'
-    BIND_IN_PLACE = 'in_place'
-    BIND_OPERATION = 'operation'
+    BIND_IN_PLACE_SELECTOR = 'in_place'
+    BIND_IS_OPERATION = 'operation'
     BIND_KEYS = frozenset(
-        [BIND_TARGET_CLASS, BIND_POST_PROCESSING, BIND_RESULT, BIND_IN_PLACE, BIND_OPERATION])
+        [BIND_EXECUTOR_STUB, BIND_POST_PROC_FUNCS, BIND_RESULT, BIND_IN_PLACE_SELECTOR,
+         BIND_IS_OPERATION])
 
     def __init__(self, *args, **kwargs):
         self.initialized = False
@@ -67,7 +69,7 @@ class Case(object):
         self.executor = None
         self.execution_output = None
 
-        self.params = self.process_params(**kwargs)
+        self.params = self.preprocess_params(**kwargs)
 
         if self.current_test:
             self.current_test.add_case(self)
@@ -76,49 +78,40 @@ class Case(object):
         return str(self.execution_output) if self.execution_output else 'Case is not run yet'
 
     @classmethod
-    def process_params(cls, **kwargs):
+    def preprocess_params(cls, **kwargs):
         invalid_kwargs = set(kwargs) - cls.BIND_KEYS
         if invalid_kwargs:
             repr_kws = natural_join('and', map(repr, invalid_kwargs))
             raise TypeError('Test parameters do not take {}'.format(repr_kws))
-        return {k: getattr(cls, 'process_' + k, identity)(v) for k, v in kwargs.items()}
+        return {k: getattr(cls, 'preprocess_' + k, identity)(v) for k, v in kwargs.items()}
 
     @classmethod
-    def process_target(cls, target):
-        if not isclass(target):
-            if callable(target):
-                target = Runnable.ClassFactory(target)
-            else:
-                raise ValueError('Target is not a class nor function')
+    def preprocess_target(cls, target):
+        if not isinstance(target, ExecutorStub):
+            target = make_target(target)
         return target
 
     @classmethod
-    def process_post_proc(cls, post_proc):
+    def preprocess_post_proc(cls, post_proc):
         if callable(post_proc):
-            post_proc = [post_proc]
+            post_procs = [post_proc]
         elif is_iterable(post_proc):
-            post_proc = list(post_proc)
-            if not all(map(callable, post_proc)):
+            post_procs = list(post_proc)
+            if not all(map(callable, post_procs)):
                 raise TypeError('Some post-processing is not callable')
         else:
             raise TypeError('Post_proc is not of type callable or iterable')
-
-        def _reduce_post_proc(x):
-            for f in post_proc:
-                x = f(x)
-            return x
-
-        return _reduce_post_proc
+        return post_procs
 
     @classmethod
-    def process_result(cls, result):
+    def preprocess_result(cls, result):
         if callable(result):
             # callable result is treated like target
-            result = cls.process_target(result)
+            result = cls.preprocess_target(result)
         return result
 
     @classmethod
-    def process_in_place(cls, in_place):
+    def preprocess_in_place(cls, in_place):
         def _safe_get(args, i):
             if not (0 <= i < len(args)):
                 raise ValueError('In_place is out of range')
@@ -126,13 +119,13 @@ class Case(object):
 
         if isinstance(in_place, bool):
             if in_place:
-                return lambda args: args[0] if len(args) == 1 else args
+                return identity
         elif isinstance(in_place, int):
             return lambda args: _safe_get(args, in_place)
         elif is_iterable(in_place):
             in_place = list(in_place)
             if not all(isinstance(i, int) for i in in_place):
-                raise TypeError('In_place is not an iterable of integers')
+                raise TypeError('One element of in_place is not an integer')
             return lambda args: [_safe_get(args, i) for i in in_place]
         else:
             raise TypeError('In_place is not of type bool, int or iterable')
@@ -140,15 +133,14 @@ class Case(object):
     @classmethod
     def process_args(cls, args, operation):
         """
-        :return (any, ...), [OperationStub]: the first returned value is arguments
-            to be passed to the constructor of target
+        :return Operations:
         """
         if operation:
-            init_args, stubs = ArgsParser().parse(args)
+            init_args, ops = ArgsParser().parse(args)
         else:
             init_args = ()
-            stubs = [OperationStub(None, args, True)]
-        return init_args, stubs
+            ops = [Operation(args=args, collect=True)]
+        return Operations(init_args, ops)
 
     def _initialize(self, default_params=None):
         """Initialize parameters of this case.
@@ -163,48 +155,66 @@ class Case(object):
         params.update(self.params)
         self.params = params
 
-        # Validate target
-        self.target = self.params.get(self.BIND_TARGET_CLASS)
-        if self.target is None:
-            raise RuntimeError('Target was not specified in Test nor Case')
+        # Process post_proc and in_place
+        post_proc_funcs = self.params.get(self.BIND_POST_PROC_FUNCS, [])
+
+        selector = self.params.get(self.BIND_IN_PLACE_SELECTOR)
+        if selector:
+            post_proc_funcs = [selector] + post_proc_funcs
+            in_place = True
+        else:
+            in_place = False
+
+        if post_proc_funcs:
+            def post_proc(x):
+                for f in post_proc_funcs:
+                    x = f(x)
+                return x
+        else:
+            post_proc = None
 
         # Create executor
-        operation = self.params.get(self.BIND_OPERATION, False)
-        init_args, stubs = self.process_args(self.args, operation)
-        post_proc = self.params.get(self.BIND_POST_PROCESSING)
-        in_place_selector = self.params.get(self.BIND_IN_PLACE)
-        self.executor = Executor(init_args, stubs, post_proc, in_place_selector)
+        stub = self.params.get(self.BIND_EXECUTOR_STUB)
+        if stub is None:
+            raise RuntimeError('Target was specified in neither Test nor Case')
+        is_operation = self.params.get(self.BIND_IS_OPERATION, False)
+        self.executor = stub.complete(post_proc=post_proc, in_place=in_place)
 
-        # Validate operation, result, and Result()
+        # Process operation, result, and Result()
+        self.operations = self.process_args(self.args, is_operation)
         bound_result = self.params.get(self.BIND_RESULT, sentinel)
         result_objects = [item for item in self.args if isinstance(item, Result)]
         if result_objects and bound_result is not sentinel:
             raise RuntimeError('Both Result() object and result= keyword is specified')
-        if isclass(bound_result):
-            # Used result generator
-            # assert all stub.collect is unset. Collect all returned values of operation
-            for stub in stubs:
-                stub.collect = True
-            vals = self.executor.execute(bound_result).get_val()
-        elif operation:
-            # Used Result() objects.
-            if bound_result is not sentinel:
-                raise RuntimeError(
-                    'result= keyword can only be a target when operation is True. You may want to '
-                    'use Result() object')
-            if not result_objects:
-                raise RuntimeError('Result() object is not specified when operation is True')
-            # Turn them into plain values
-            vals = [self.executor.normalize_raw_output(r.val) for r in result_objects]
+        if isinstance(bound_result, ExecutorStub):
+            # Result is another target
+            result_executor = bound_result.complete(post_proc=post_proc, in_place=in_place)
+            # At least collect something
+            if not any(op.collect for op in self.operations):
+                for op in self.operations:
+                    op.collect = True
+            vals = result_executor.execute(self.operations).get_val()
         else:
-            # Used a plain value
-            if result_objects:
-                raise RuntimeError(
-                    'Result() object is not accepted when operation is False. Please use result= '
-                    'keyword')
-            if bound_result is sentinel:
-                raise RuntimeError('result is not specified')
-            vals = [self.executor.normalize_raw_output(bound_result)]
+            if is_operation:
+                # Used Result() objects.
+                if bound_result is not sentinel:
+                    raise RuntimeError(
+                        'result= keyword can only be a target when operation is True. You may want to '
+                        'use Result() object')
+                if not result_objects:
+                    raise RuntimeError('Result() object is not specified when operation is True')
+                # Turn them into plain values
+                result_vals = (r.val for r in result_objects)
+            else:
+                # Used a plain value
+                if result_objects:
+                    raise RuntimeError(
+                        'Result() object is not accepted when operation is False. Please use result= '
+                        'keyword')
+                if bound_result is sentinel:
+                    raise RuntimeError('result is not specified')
+                result_vals = [bound_result]
+            vals = [self.executor.normalize_raw_output(v) for v in result_vals]
         self.asserted_output_vals = vals
 
         self.initialized = True
@@ -212,20 +222,13 @@ class Case(object):
     def run(self):
         if self.execution_output is None:
             self._initialize()
-            self.execution_output = self.executor.execute(self.target)
+            self.execution_output = self.executor.execute(self.operations)
             self.execution_output.check(self.asserted_output_vals)
         return self.execution_output.result
 
 
-class Result(Reprable):
-    def __init__(self, val):
-        self.val = val
-
-    def __str__(self):
-        return str(self.val)
-
-    def __eq__(self, other):
-        return isinstance(other, type(self)) and self.val == other.val
+class Result(Sentinel):
+    pass
 
 
 class ArgsParser(object):
@@ -253,8 +256,8 @@ class ArgsParser(object):
     }
 
     def push_stub(self):
-        self.stubs.append(self.curr_stub)
-        self.curr_stub = OperationStub()
+        self.operations.append(self.curr_operation)
+        self.curr_operation = Operation()
 
     @classmethod
     def get_symbol(cls, item, state):
@@ -282,20 +285,24 @@ class ArgsParser(object):
         self.handle_name()
 
     def handle_name(self):
-        self.curr_stub.name = self.item
+        self.curr_operation.name = self.item
 
     def handle_result(self):
-        self.curr_stub.collect = True
+        self.curr_operation.collect = True
         self.push_stub()
 
     def handle_args(self):
-        self.curr_stub.args = self.item
+        self.curr_operation.args = self.item
 
     def parse(self, args):
+        """
+        :return (any, ...), [Operation]: the first returned value is arguments to be passed to
+            the constructor of target
+        """
         self.init_args = ()
-        self.stubs = []
+        self.operations = []
         self.state = self.START_STATE
-        self.curr_stub = OperationStub()
+        self.curr_operation = Operation()
 
         for item in args:
             self.item = item
@@ -315,9 +322,8 @@ class ArgsParser(object):
         end_handler_name = self.TRANS[self.state][-1]
         getattr(self, end_handler_name, nop)()
 
-        if not self.stubs:
+        if not self.operations:
             raise ValueError('Args contains no method call')
 
-        ret = tuple(self.init_args), self.stubs
-        del self.init_args, self.stubs, self.state, self.curr_stub
+        ret = tuple(self.init_args), self.operations
         return ret
