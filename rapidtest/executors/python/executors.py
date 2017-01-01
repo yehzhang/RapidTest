@@ -3,7 +3,7 @@ from inspect import isclass, getmembers, ismethod, getmodule
 
 from .dependencies import get_dependencies
 from ..common_executors import BaseExecutor
-from ..outputs import ExecutionOutput, OperationOutput
+from ..outputs import OperationOutput
 
 
 class NativeExecutor(BaseExecutor):
@@ -12,21 +12,17 @@ class NativeExecutor(BaseExecutor):
 
     _injected_targets = set()
 
-    def __init__(self, target, **kwargs):
-        super(NativeExecutor, self).__init__(**kwargs)
+    def __init__(self, target):
+        super(NativeExecutor, self).__init__(target)
 
-        self.target = target
         self.inject_dependencies(target)
 
-    def execute(self, operations):
-        # Lazy-executing operations
+    def _execute(self, operations):
         funcs = self.get_functions(operations)
-        return ExecutionOutput(self._execute(*t) for t in zip(funcs, operations))
+        # Lazy-evaluate operations
+        return (self._execute_operation(*t) for t in zip(funcs, operations))
 
-    def _execute(self, func, op):
-        """
-        :return OperationOutput:
-        """
+    def _execute_operation(self, func, op):
         args = deepcopy(op.args)
         val = func(*args)
         if self.in_place_selector:
@@ -59,56 +55,58 @@ class NativeExecutor(BaseExecutor):
 
 
 class ClassExecutor(NativeExecutor):
-    def __init__(self, *args, **kwargs):
-        super(ClassExecutor, self).__init__(*args, **kwargs)
+    def __init__(self, target):
+        super(ClassExecutor, self).__init__(target)
 
-        if not isclass(self.target):
+        if not isclass(target):
             raise TypeError('Target is not a class')
+
+        self.target_instance = None
+        self.default_method = None
 
     def get_functions(self, operations):
         # Extract methods to call
         funcs = []
 
-        target_instance = self.target(*operations.init_args)
+        self.target_instance = self.target(*operations.init_args)
         for op in operations:
-            op.name, func = self.get_target_method(target_instance, op.name)
+            op.name, func = self.get_method(op.name)
             funcs.append(func)
 
         return funcs
 
-    @classmethod
-    def get_target_method(cls, target_instance, name=None):
-        """Get from `target_instance` a method and its name.
+    def get_method(self, name=None):
+        """Get from `self.target_instance` a method and its name.
 
-        :param object target_instance:
-        :param str name: ignored if target is Runnable. If not specified and target is not Runnable,
-            return the only public method, if any.
+        :param str name: If not specified, return the only public method, if any.
         :return str, callable:
         """
         if name:
-            func = getattr(target_instance, name)
+            func = getattr(self.target_instance, name)
             if not callable(func):
                 raise RuntimeError("{} object's attribute {} is not callable".format(
-                    repr(type(target_instance).__name__), repr(name)))
+                    repr(type(self.target_instance).__name__), repr(name)))
             method = name, func
         else:
             # Get a public method
-            methods = getmembers(target_instance, predicate=ismethod)
-            methods = [(name, f) for name, f in methods if not name.startswith('_')]
-            if len(methods) != 1:
-                raise RuntimeError(
-                    'Cannot find the target method. You may specify operations as arguments to '
-                    'Case if there are multiple methods to be called, or prepend all '
-                    'names of private methods with underscores.')
-            [method] = methods
+            if self.default_method is None:
+                methods = getmembers(self.target_instance, predicate=ismethod)
+                methods = [(name, f) for name, f in methods if not name.startswith('_')]
+                if len(methods) != 1:
+                    raise RuntimeError(
+                        'Cannot find the target method. You may specify operations as arguments '
+                        'to Case if there are multiple methods to be called, or prepend all names '
+                        'of private methods with underscores.')
+                [self.default_method] = methods
+            method = self.default_method
         return method
 
 
 class FunctionExecutor(NativeExecutor):
-    def __init__(self, *args, **kwargs):
-        super(FunctionExecutor, self).__init__(*args, **kwargs)
+    def __init__(self, target):
+        super(FunctionExecutor, self).__init__(target)
 
-        if not callable(self.target):
+        if not callable(target):
             raise TypeError('Target is not a function')
 
     def get_functions(self, operations):

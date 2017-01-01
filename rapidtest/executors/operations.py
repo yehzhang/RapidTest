@@ -26,9 +26,10 @@ class Operation(object):
 
 
 class Operations(object):
-    def __init__(self, init_args, operations):
+    def __init__(self, init_args, operations, **kwargs):
         self.init_args = init_args
         self.operations = operations
+        self.params = kwargs
 
     def __iter__(self):
         return iter(self.operations)

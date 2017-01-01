@@ -1,15 +1,13 @@
 import string
-import sys
 from collections import Sequence
 from itertools import count, chain, combinations
 from random import randint, random, sample, choice
 
-sentinel = object()
+from six import string_types as basestring
+# noinspection PyUnresolvedReferences
+from six.moves import range
 
-if sys.version_info.major < 3:
-    range = xrange
-else:
-    basestring = str
+sentinel = object()
 
 MAX_INT = 2 ** 31 - 1
 MIN_INT = -(2 ** 31)
@@ -26,13 +24,13 @@ def rec_tuple(x):
 
 
 def rec_cast(f, x):
-    if not isinstance(x, PRIMITIVE_TYPES) and is_iterable(x):
+    if not isinstance(x, PRIMITIVE_TYPES) and iterable(x):
         return f(rec_cast(f, i) for i in x)
     return x
 
 
 def unordered(x):
-    if is_iterable(x):
+    if iterable(x):
         return sorted(x)
     return x
 
@@ -43,10 +41,10 @@ def rec_unordered(x):
 
 def super_len(x):
     """May loop forever if x is an infinite generator."""
-    if hasattr(x, '__len__'):
+    if lenable(x):
         return len(x)
 
-    if is_iterable(x):
+    if iterable(x):
         iter_x = iter(x)
         for i in count():
             try:
@@ -57,16 +55,20 @@ def super_len(x):
     return 0
 
 
-def is_iterable(x):
+def iterable(x):
     return hasattr(x, '__iter__')
 
 
 def is_sequence(x):
-    return isinstance(x, Sequence) and not is_string(x)
+    return isinstance(x, Sequence) and not isstring(x)
 
 
-def is_string(x):
+def isstring(x):
     return isinstance(x, basestring)
+
+
+def lenable(x):
+    return hasattr(x, '__len__')
 
 
 def memo(f):
@@ -191,7 +193,7 @@ class Sentinel(Reprable):
 def natural_join(last_sep, strs):
     """Join strs as if in a natural sentence."""
     strs = list(strs)
-    if not all(isinstance(s, str) for s in strs):
+    if not all(map(isstring, strs)):
         raise TypeError('Some of strs is not of type str')
 
     if not strs:
@@ -203,6 +205,32 @@ def natural_join(last_sep, strs):
         return ' '.join([l, last_sep, r])
     strs[-1] = '{} {}'.format(last_sep, strs[-1])
     return ', '.join(strs)
+
+
+def natural_format(fmt, *args, **kwargs):
+    """Format by plurality of item.
+
+    :param str fmt:
+    :param iterable item:
+    :param str last_sep: defaults to 'and'
+    """
+    item = kwargs.get('item')
+    if item is None:
+        raise TypeError(natural_join.__name__ + "() missing 1 required keyword argument: 'item'")
+    if not iterable(item):
+        raise TypeError("'item' is not iterable")
+
+    item = list(map(str, item))
+    if len(item) == 0:
+        raise ValueError("'item' is empty")
+    plural = len(item) != 1
+    last_sep = kwargs.get('last_sep', 'and')
+    return fmt.format(*args,
+                      item=natural_join(last_sep, item),
+                      a='' if plural else 'a ',
+                      an='' if plural else 'an ',
+                      s='s' if plural else '',
+                      es='es' if plural else '')
 
 
 def powerset(iterable):

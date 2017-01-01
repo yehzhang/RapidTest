@@ -1,37 +1,37 @@
 from inspect import isclass
 
-from .common_executors import BaseExecutor
+from .common_executors import BaseExecutor, ExternalExecutorFabric
 from .operations import Operation, Operations
-from .python import *
 from .java import *
+from .python import *
+from ..utils import isstring
 
 
 class Target(object):
     _cache = {}
 
-    def __init__(self, target, lang=None, class_name=None):
+    def __init__(self, target, target_name=None, env=None):
+        """Factory class for building executors
+
+        :param callable|str target: a native object or a path to an external file, which contains
+            the structure to be tested
+        :param str target_name: if target is a path, this indicates the name of the structure to
+            test
+        :param str env: environment of the target, usually just the language name itself
         """
-        :param callable|str target:
-        :param str lang:
-        :param str class_name:
-        """
-        exec_id = (target, class_name)
-        if exec_id not in self._cache:
+        executor_id = (target, target_name)
+        if executor_id not in self._cache:
             # Find the corresponding executor
-            if isinstance(target, str):
-                # TODO
-                pass
+            if isstring(target):
+                cls = ExternalExecutorFabric.get(env) or ExternalExecutorFabric.guess(target)
+                executor = cls(target, target_name)
+
             elif callable(target):
-                if isclass(target):
-                    cls = ClassExecutor
-                else:
-                    cls = FunctionExecutor
+                executor = (ClassExecutor if isclass(target) else FunctionExecutor)(target)
+
             else:
                 raise TypeError('Target is not a callable nor str')
-            self._cache[exec_id] = cls(target)
 
-        self.executor = self._cache[exec_id]
+            self._cache[executor_id] = executor
 
-    def complete(self, *args, **kwargs):
-        self.executor.initialize(*args, **kwargs)
-        return self.executor
+        self.executor = self._cache[executor_id]

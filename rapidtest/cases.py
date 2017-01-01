@@ -1,6 +1,6 @@
 from .executors import Operation, Operations, Target
-from .utils import is_iterable, identity, natural_join, nop, is_sequence, sentinel, is_string, \
-    Sentinel
+from .utils import iterable, identity, natural_join, nop, is_sequence, sentinel, isstring, \
+    Sentinel, natural_format
 
 
 class Case(object):
@@ -79,8 +79,9 @@ class Case(object):
     def preprocess_params(cls, **kwargs):
         invalid_kwargs = set(kwargs) - cls.BIND_KEYS
         if invalid_kwargs:
-            repr_kws = natural_join('and', map(repr, invalid_kwargs))
-            raise TypeError('Test parameters do not take {}'.format(repr_kws))
+            raise TypeError(
+                natural_format('{}() got {an}unexpected keyword argument{s} {item}', cls.__name__,
+                               item=map(repr, invalid_kwargs)))
         return {k: getattr(cls, 'preprocess_' + k, identity)(v) for k, v in kwargs.items()}
 
     @classmethod
@@ -93,7 +94,7 @@ class Case(object):
     def preprocess_post_proc(cls, post_proc):
         if callable(post_proc):
             post_procs = [post_proc]
-        elif is_iterable(post_proc):
+        elif iterable(post_proc):
             post_procs = list(post_proc)
             if not all(map(callable, post_procs)):
                 raise TypeError('Some post-processing is not callable')
@@ -104,6 +105,7 @@ class Case(object):
             for f in post_procs:
                 x = f(x)
             return x
+
         return chain
 
     @classmethod
@@ -136,7 +138,7 @@ class Case(object):
             raise TypeError('In_place is not of type bool, int or iterable')
 
     @classmethod
-    def process_args(cls, args, operation):
+    def process_args(cls, args, operation, **kwargs):
         """
         :return Operations:
         """
@@ -145,7 +147,7 @@ class Case(object):
         else:
             init_args = ()
             ops = [Operation(args=args, collect=True)]
-        return Operations(init_args, ops)
+        return Operations(init_args, ops, **kwargs)
 
     def _initialize(self, default_params=None):
         """Initialize parameters of this case.
@@ -161,28 +163,30 @@ class Case(object):
         self.params = params
 
         # Create executor
-        post_proc = self.params.get(self.BIND_POST_PROC)
-        selector = self.params.get(self.BIND_IN_PLACE_SELECTOR)
         target = self.params.get(self.BIND_EXECUTOR_STUB)
         if target is None:
             raise RuntimeError('Target was specified in neither Test nor Case')
-        is_operation = self.params.get(self.BIND_IS_OPERATION, False)
-        self.executor = target.complete(post_proc=post_proc, in_place_selector=selector)
+        self.executor = target.executor
 
-        # Process operation, result, and Result()
-        self.operations = self.process_args(self.args, is_operation)
+        # Process operation
+        is_operation = self.params.get(self.BIND_IS_OPERATION, False)
+        post_proc = self.params.get(self.BIND_POST_PROC)
+        selector = self.params.get(self.BIND_IN_PLACE_SELECTOR)
+        self.operations = self.process_args(self.args, is_operation, post_proc=post_proc,
+                                            in_place_selector=selector)
+
+        # Process result= and Result()
         bound_result = self.params.get(self.BIND_RESULT, sentinel)
         result_objects = [item for item in self.args if isinstance(item, Result)]
         if result_objects and bound_result is not sentinel:
             raise RuntimeError('Both Result() object and result= keyword is specified')
         if isinstance(bound_result, Target):
             # Result is another target
-            result_executor = bound_result.complete(post_proc=post_proc, in_place_selector=selector)
             # At least collect something
             if not any(op.collect for op in self.operations):
                 for op in self.operations:
                     op.collect = True
-            vals = result_executor.execute(self.operations).get_val()
+            vals = bound_result.executor.execute(self.operations).get_val()
         else:
             if is_operation:
                 # Used Result() objects.
@@ -203,6 +207,7 @@ class Case(object):
                 if bound_result is sentinel:
                     raise RuntimeError('result is not specified')
                 result_vals = [bound_result]
+            self.executor.initialize(post_proc=post_proc)
             vals = [self.executor.normalize_raw_output(v) for v in result_vals]
         self.asserted_output_vals = vals
 
@@ -252,7 +257,7 @@ class ArgsParser(object):
     def get_symbol(cls, item, state):
         if isinstance(item, Result):
             symbols = cls.RSLT,
-        elif is_string(item):
+        elif isstring(item):
             symbols = cls.NAME, cls.NEXT_NAME
         elif is_sequence(item):
             symbols = cls.INIT_ARGS, cls.ARGS
