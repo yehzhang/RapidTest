@@ -95,3 +95,6 @@ ENV/
 Solution.py
 do_tests.py
 
+
+*.class
+rapidtest/executors/*/src/out
