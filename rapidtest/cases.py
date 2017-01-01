@@ -1,4 +1,4 @@
-from .executors import Operation, Operations, Target
+from .executors import BaseExecutor, Operation, Operations, Target, BaseTarget
 from .utils import iterable, identity, natural_join, nop, is_sequence, sentinel, isstring, \
     Sentinel, natural_format
 
@@ -28,8 +28,8 @@ class Case(object):
     :param bool operation: whether args are of the second format or the first one. Default to
         use the first format.
 
-    :param callable|Target target: a function or class to be tested. If it is a class and
-        `operation` is False, the only public method will be called, if any.
+    :param callable|Target|BaseExecutor target: a function or class to be tested. If it is a class
+        and `operation` is False, the only public method will be called, if any.
         Alternatively target can be a value returned by make_target().
         # TODO support other languages
 
@@ -86,7 +86,9 @@ class Case(object):
 
     @classmethod
     def preprocess_target(cls, target):
-        if not isinstance(target, Target):
+        if isinstance(target, BaseExecutor):
+            target = BaseTarget(target)
+        elif not isinstance(target, BaseTarget):
             target = Target(target)
         return target
 

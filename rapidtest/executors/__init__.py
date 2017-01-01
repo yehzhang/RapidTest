@@ -7,7 +7,12 @@ from .python import *
 from ..utils import isstring
 
 
-class Target(object):
+class BaseTarget(object):
+    def __init__(self, executor):
+        self.executor = executor
+
+
+class Target(BaseTarget):
     _cache = {}
 
     def __init__(self, target, target_name=None, env=None):
@@ -34,4 +39,4 @@ class Target(object):
 
             self._cache[executor_id] = executor
 
-        self.executor = self._cache[executor_id]
+        super(Target, self).__init__(self._cache[executor_id])
