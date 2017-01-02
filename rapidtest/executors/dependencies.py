@@ -1,11 +1,11 @@
 from importlib import import_module
 
-from ...utils import Reprable
+from rapidtest.utils import Reprable
 
 
 def get_dependencies():
     """
-    :return dict, dict: {class_name: class}, {obj_name: obj}. Obj could be anything but class
+    :return {str: type}: {class_name: class}
     """
     dependencies = {}
     pkg_name, _ = __name__.rsplit('.', 1)

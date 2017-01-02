@@ -1,6 +1,6 @@
 from .executors import BaseExecutor, Operation, Operations, Target, BaseTarget
-from .utils import iterable, identity, natural_join, nop, is_sequence, sentinel, isstring, \
-    Sentinel, natural_format
+from .utils import iterable, identity, natural_join, nop, sentinel, Sentinel, natural_format
+from ._compat import is_sequence, isstring
 
 
 class Case(object):
@@ -210,7 +210,7 @@ class Case(object):
                     raise RuntimeError('result is not specified')
                 result_vals = [bound_result]
             self.executor.initialize(post_proc=post_proc)
-            vals = [self.executor.normalize_raw_output(v) for v in result_vals]
+            vals = [self.executor.normalize_raw(v) for v in result_vals]
         self.asserted_output_vals = vals
 
         self.initialized = True

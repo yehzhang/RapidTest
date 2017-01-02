@@ -1,3 +1,7 @@
+from .outputs import OperationOutput
+from .clients import Request
+
+
 class Operation(object):
     def __init__(self, name=None, args=(), collect=False):
         """
@@ -11,12 +15,7 @@ class Operation(object):
 
     def __str__(self):
         repr_output = ' -> ?' if self.collect else ''
-        return self.format(self.name or '?', self.args, repr_output)
-
-    @classmethod
-    def format(cls, func_name, args, repr_output):
-        repr_args = ', '.join(map(repr, args))
-        return '{}({}){}'.format(func_name, repr_args, repr_output)
+        return OperationOutput.format(self.name or '?', self.args, repr_output)
 
     def __eq__(self, other):
         """For testing. """
@@ -24,12 +23,19 @@ class Operation(object):
             self)) and self.name == other.name and self.args == other.args and self.collect == \
                                                                                other.collect
 
+    def to_output(self, val):
+        return OperationOutput(self.name, self.args, self.collect, val)
+
+    def to_request(self):
+        return Request(self.name, self.args)
+
 
 class Operations(object):
-    def __init__(self, init_args, operations, **kwargs):
+    def __init__(self, init_args, operations, post_proc=None, in_place_selector=None):
         self.init_args = init_args
         self.operations = operations
-        self.params = kwargs
+        self.post_proc = post_proc
+        self.in_place_selector = in_place_selector
 
     def __iter__(self):
         return iter(self.operations)
@@ -41,3 +47,16 @@ class Operations(object):
         """For testing. """
         return isinstance(other, type(self)) and self.init_args == other.init_args and len(
             self) == len(other) and all(s == o for s, o in zip(self, other))
+
+    def initialize(self, executor):
+        executor.initialize(post_proc=self.post_proc, in_place_selector=self.in_place_selector)
+
+    def to_params(self):
+        """
+        :return [any]): params
+        """
+        params = [{
+            'in_place': bool(self.in_place_selector)
+        }, dict(Request(params=self.init_args))]
+        params.extend(dict(o.to_request()) for o in self.operations)
+        return params

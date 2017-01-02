@@ -3,7 +3,7 @@ from itertools import count
 from json import loads
 from random import random
 
-from .executors.python.dependencies import TreeNode as BaseTreeNode, ListNode as BaseListNode
+from .executors.dependencies import TreeNode as BaseTreeNode, ListNode as BaseListNode
 from .utils import nop, randbool, randints
 
 

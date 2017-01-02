@@ -1,9 +1,8 @@
 from copy import deepcopy
 from inspect import isclass, getmembers, ismethod, getmodule
 
-from .dependencies import get_dependencies
+from ..dependencies import get_dependencies
 from ..common_executors import BaseExecutor
-from ..outputs import OperationOutput
 
 
 class NativeExecutor(BaseExecutor):
@@ -17,18 +16,16 @@ class NativeExecutor(BaseExecutor):
 
         self.inject_dependencies(target)
 
-    def _execute(self, operations):
-        funcs = self.get_functions(operations)
-        # Lazy-evaluate operations
-        return (self._execute_operation(*t) for t in zip(funcs, operations))
+    def execute_operations(self, operations):
+        """Lazy-evaluate operations but get functions immediately. """
+        return (self._execute(*t) for t in zip(self.get_functions(operations), operations))
 
-    def _execute_operation(self, func, op):
+    def _execute(self, func, op):
         args = deepcopy(op.args)
         val = func(*args)
         if self.in_place_selector:
-            val = self.in_place_selector(args)
-        val = self.normalize_raw_output(val)
-        return OperationOutput(op.name, op.args, op.collect, val)
+            val = args
+        return self.finalize_operation(op, val)
 
     def get_functions(self, operations):
         """

@@ -1,4 +1,4 @@
-from .operations import Operation
+# coding=utf-8
 from ..utils import sentinel
 
 
@@ -46,7 +46,7 @@ class OperationOutput(Output):
             repr_output = ' -> {} {}'.format(repr(self.val), repr_comp)
         else:
             repr_output = ''
-        return Operation.format(self.func_name, self.args, repr_output)
+        return self.format(self.func_name, self.args, repr_output)
 
     def get_val(self):
         if not self.collect:
@@ -59,6 +59,11 @@ class OperationOutput(Output):
         self.result = val == self.asserted_val
         return self.result
 
+    @classmethod
+    def format(cls, func_name, args, repr_output):
+        repr_args = ', '.join(map(repr, args))
+        return '{}({}){}'.format(func_name, repr_args, repr_output)
+
 
 class ExecutionOutput(Output):
     MAX_ENT_LNS = 4
@@ -66,7 +71,7 @@ class ExecutionOutput(Output):
 
     def __init__(self, outputs):
         """
-        :param iterable outputs: an iterable of Output
+        :param iterable[Output] outputs:
         """
         self._checked_outputs = []
         self._pending_outputs = iter(outputs)

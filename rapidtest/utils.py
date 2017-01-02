@@ -1,11 +1,8 @@
 import string
-from collections import Sequence
 from itertools import count, chain, combinations
 from random import randint, random, sample, choice
 
-from six import string_types as basestring
-# noinspection PyUnresolvedReferences
-from six.moves import range
+from ._compat import isstring
 
 sentinel = object()
 
@@ -57,14 +54,6 @@ def super_len(x):
 
 def iterable(x):
     return hasattr(x, '__iter__')
-
-
-def is_sequence(x):
-    return isinstance(x, Sequence) and not isstring(x)
-
-
-def isstring(x):
-    return isinstance(x, basestring)
 
 
 def lenable(x):

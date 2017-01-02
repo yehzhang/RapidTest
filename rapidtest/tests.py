@@ -9,7 +9,7 @@ from .cases import Case
 class Test(object):
     """Manage cases, test them, and print the result of each case.
 
-    :param type target: same as the keyword argument 'target' of the Case class
+    :param target: same as the keyword argument 'target' of the Case class
     :param kwargs: same as those of the Case class
     """
     _context_stack = []

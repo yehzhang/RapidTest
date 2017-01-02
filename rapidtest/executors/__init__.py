@@ -13,7 +13,7 @@ class BaseTarget(object):
 
 
 class Target(BaseTarget):
-    _cache = {}
+    _executors_pool = {}
 
     def __init__(self, target, target_name=None, env=None):
         """Factory class for building executors
@@ -25,7 +25,7 @@ class Target(BaseTarget):
         :param str env: environment of the target, usually just the language name itself
         """
         executor_id = (target, target_name)
-        if executor_id not in self._cache:
+        if executor_id not in self._executors_pool:
             # Find the corresponding executor
             if isstring(target):
                 cls = ExternalExecutorFabric.get(env) or ExternalExecutorFabric.guess(target)
@@ -37,6 +37,6 @@ class Target(BaseTarget):
             else:
                 raise TypeError('Target is not a callable nor str')
 
-            self._cache[executor_id] = executor
+            self._executors_pool[executor_id] = executor
 
-        super(Target, self).__init__(self._cache[executor_id])
+        super(Target, self).__init__(self._executors_pool[executor_id])
