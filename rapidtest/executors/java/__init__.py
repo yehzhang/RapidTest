@@ -1,1 +1,1 @@
-from .executors import JavaExecutor
+from .executors import Java8Executor
