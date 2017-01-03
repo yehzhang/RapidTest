@@ -99,9 +99,9 @@ class Case(object):
         elif iterable(post_proc):
             post_procs = list(post_proc)
             if not all(map(callable, post_procs)):
-                raise TypeError('Some post-processing is not callable')
+                raise TypeError('some post-processing is not callable')
         else:
-            raise TypeError('Post_proc is not of type callable or iterable')
+            raise TypeError('post_proc is not of type callable or iterable')
 
         def chain(x):
             for f in post_procs:
@@ -121,7 +121,7 @@ class Case(object):
     def preprocess_in_place(cls, in_place):
         def _safe_get(args, i):
             if not (0 <= i < len(args)):
-                raise ValueError('In_place is out of range')
+                raise ValueError('in_place is out of range')
             return args[i]
 
         if isinstance(in_place, bool):
@@ -132,12 +132,12 @@ class Case(object):
         elif is_sequence(in_place):
             in_place = list(in_place)
             if not in_place:
-                raise ValueError('In_place cannot be empty')
+                raise ValueError('in_place cannot be empty')
             if not all(isinstance(i, int) for i in in_place):
-                raise TypeError('One element of in_place is not an integer')
+                raise TypeError('one element of in_place is not an integer')
             return lambda args: [_safe_get(args, i) for i in in_place]
         else:
-            raise TypeError('In_place is not of type bool, int or iterable')
+            raise TypeError('in_place is not of type bool, int or iterable')
 
     @classmethod
     def process_args(cls, args, operation, **kwargs):
@@ -167,7 +167,7 @@ class Case(object):
         # Create executor
         target = self.params.get(self.BIND_EXECUTOR_STUB)
         if target is None:
-            raise RuntimeError('Target was specified in neither Test nor Case')
+            raise RuntimeError('target was specified in neither Test nor Case')
         self.executor = target.executor
 
         # Process operation
@@ -181,7 +181,7 @@ class Case(object):
         bound_result = self.params.get(self.BIND_RESULT, sentinel)
         result_objects = [item for item in self.args if isinstance(item, Result)]
         if result_objects and bound_result is not sentinel:
-            raise RuntimeError('Both Result() object and result= keyword is specified')
+            raise RuntimeError('both Result() object and result= keyword is specified')
         if isinstance(bound_result, Target):
             # Result is another target
             # At least collect something
@@ -197,14 +197,14 @@ class Case(object):
                         'result= keyword can only be a target when operation is True. You may '
                         'want to use Result() object')
                 if not result_objects:
-                    raise RuntimeError('Result() object is not specified when operation is True')
+                    raise RuntimeError('result() object is not specified when operation is True')
                 # Turn them into plain values
                 result_vals = (r.val for r in result_objects)
             else:
                 # Used a plain value
                 if result_objects:
                     raise RuntimeError(
-                        'Result() object is not accepted when operation is False. Please use '
+                        'result() object is not accepted when operation is False. Please use '
                         'result= keyword')
                 if bound_result is sentinel:
                     raise RuntimeError('result is not specified')
@@ -271,7 +271,7 @@ class ArgsParser(object):
                 return s
 
     def empty_args(self):
-        raise ValueError('No args is specified')
+        raise ValueError('no args were specified')
 
     def handle_init_args(self):
         self.init_args = self.item
@@ -319,7 +319,7 @@ class ArgsParser(object):
         getattr(self, end_handler_name, nop)()
 
         if not self.operations:
-            raise ValueError('Args contains no method call')
+            raise ValueError('args contain no method call')
 
         ret = tuple(self.init_args), self.operations
         return ret

@@ -1,6 +1,7 @@
 from copy import deepcopy
 from inspect import isclass, getmembers, ismethod, getmodule
 
+from ..exceptions import MSG_CANNOT_GUESS_METHOD
 from ..dependencies import get_dependencies
 from ..common_executors import BaseExecutor
 
@@ -56,7 +57,7 @@ class ClassExecutor(NativeExecutor):
         super(ClassExecutor, self).__init__(target)
 
         if not isclass(target):
-            raise TypeError('Target is not a class')
+            raise TypeError('target is not a class')
 
         self.target_instance = None
         self.default_method = None
@@ -90,10 +91,7 @@ class ClassExecutor(NativeExecutor):
                 methods = getmembers(self.target_instance, predicate=ismethod)
                 methods = [(name, f) for name, f in methods if not name.startswith('_')]
                 if len(methods) != 1:
-                    raise RuntimeError(
-                        'Cannot find the target method. You may specify operations as arguments '
-                        'to Case if there are multiple methods to be called, or prepend all names '
-                        'of private methods with underscores.')
+                    raise RuntimeError(MSG_CANNOT_GUESS_METHOD)
                 [self.default_method] = methods
             method = self.default_method
         return method
@@ -104,18 +102,18 @@ class FunctionExecutor(NativeExecutor):
         super(FunctionExecutor, self).__init__(target)
 
         if not callable(target):
-            raise TypeError('Target is not a function')
+            raise TypeError('target is not a function')
 
     def get_functions(self, operations):
         if operations.init_args:
-            raise ValueError('Target cannot be instantiated')
+            raise ValueError('target cannot be instantiated')
 
         func_name = self.target.__name__
         for op in operations:
             if op.name:
                 if op.name != func_name:
                     raise ValueError(
-                        'Operations contain a method name other than {}'.format(repr(func_name)))
+                        'operations contain a method name other than {}'.format(repr(func_name)))
             else:
                 op.name = func_name
 

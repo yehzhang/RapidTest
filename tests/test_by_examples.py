@@ -10,12 +10,15 @@ def _set_test_class():
     from pathlib import Path
 
     def _load_module(name, file, pathname, description):
-        load_module(name, file, pathname, description)
-        if file:
-            file.close()
+        try:
+            load_module(name, file, pathname, description)
+        finally:
+            if file:
+                file.close()
 
     def make_method(module_name, module_tuple):
         def _m(self):
+            print('Running: {}'.format(module_name))
             _load_module(module_name, *module_tuple)
 
         return _m

@@ -115,7 +115,7 @@ class TreeNode(BaseTreeNode):
 
         val = q_vals.popleft()
         if val is None:
-            raise ValueError('Root of tree cannot be None')
+            raise ValueError('root of tree cannot be None')
         root = cls(val)
 
         q_nodes = deque([root])
@@ -157,7 +157,7 @@ class TreeNode(BaseTreeNode):
         size = int(size)
         if binary_search:
             if duplicate:
-                raise ValueError('A binary search tree does not contain duplicate nodes')
+                raise ValueError('a binary search tree does not contain duplicate nodes')
             vals = [0] * size  # just a placeholder array
         else:
             vals = randints(size, unique=not duplicate, max_num=size - 1)

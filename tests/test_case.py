@@ -34,7 +34,7 @@ class TestCase_(TestCase):
         ]))
 
         STRS = [
-            ([], r'No.*is specified'),
+            ([], r'no args were specified'),
             ([
                  [1, 2, 3],
                  []
@@ -62,19 +62,19 @@ class TestCase_(TestCase):
             with self.assertRaisesRegexp(ValueError, pat):
                 c.process_args(args, True)
 
-        with self.assertRaisesRegexp(ValueError, r'[nN]o args'):
+        with self.assertRaisesRegexp(ValueError, r'no args'):
             c.process_args([], True)
 
         with self.assertRaisesRegexp(ValueError, r'no method call'):
             c.process_args([[]], True)
 
     def test__initialize(self):
-        with self.assertRaisesRegexp(RuntimeError, r'Target.*specified.*neither'):
+        with self.assertRaisesRegexp(RuntimeError, r'target.*specified.*neither'):
             Case('append', Result(1), operation=True)._initialize()
 
-        with self.assertRaisesRegexp(RuntimeError, r'Both'):
+        with self.assertRaisesRegexp(RuntimeError, r'both'):
             Case('append', Result(1), result=1, target=nop)._initialize()
-        with self.assertRaisesRegexp(RuntimeError, r'Both'):
+        with self.assertRaisesRegexp(RuntimeError, r'both'):
             Case('append', Result(2), operation=True, result=None, target=nop)._initialize()
 
         Case('append', result=1, target=nop)._initialize()
