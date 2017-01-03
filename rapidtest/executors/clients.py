@@ -20,8 +20,8 @@ class ExecutionRPCClient(object):
 
     def __init__(self, addr, obj_types):
         """
-        :param (str, int) addr:
-        :param {str: type} obj_types:
+        :param Tuple[str, int] addr:
+        :param Dict[str, type] obj_types:
         """
         self.acceptor = None
         self.addr = addr
@@ -33,7 +33,7 @@ class ExecutionRPCClient(object):
 
     def run(self):
         """
-        :return (str, int): address of socket
+        :return Tuple[str, int]: address of socket
         """
         if self.acceptor is None:
             self.acceptor = Acceptor(self)
@@ -51,9 +51,9 @@ class ExecutionRPCClient(object):
     def request(self, target, method, params):
         """Send request and wait for response.
 
-        :param any target:
+        :param Any target:
         :param str method:
-        :param [any] params:
+        :param List[Any] params:
         :return Response:
         """
         request = Request(method, params, self.new_id())
@@ -63,9 +63,9 @@ class ExecutionRPCClient(object):
     def notify(self, target, method, params):
         """Send notification and return immediately.
 
-        :param any target:
+        :param Any target:
         :param str method:
-        :param [any] params:
+        :param List[Any] params:
         """
         request = Request(method, params)
         self._send(target, request)
@@ -200,7 +200,7 @@ class ThreadedSocketWorker(object):
     def _read(self, s=None):
         """
         :param socket s:
-        :return Response|Request:
+        :return Request|Response:
         """
         s = s or self.socket
 
@@ -251,7 +251,7 @@ class ThreadedSocketWorker(object):
 
     def _send(self, sending):
         """
-        :param any sending: better be of Request|Response
+        :param Any sending: better be of Request|Response
         """
         data = self.client.encoder.encode(dict(sending))
         self.socket.send('{} '.format(len(data)).encode())

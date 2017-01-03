@@ -31,7 +31,7 @@ class NativeExecutor(BaseExecutor):
     def get_functions(self, operations):
         """
         :param Operations operations:
-        :return [callable]:
+        :return List[Callable]:
         """
         raise NotImplementedError
 
@@ -77,7 +77,7 @@ class ClassExecutor(NativeExecutor):
         """Get from `self.target_instance` a method and its name.
 
         :param str name: If not specified, return the only public method, if any.
-        :return str, callable:
+        :return Tuple[str, Callable]:
         """
         if name:
             func = getattr(self.target_instance, name)

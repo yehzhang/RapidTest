@@ -7,7 +7,48 @@ from .cases import Case
 
 
 class Test(object):
-    """Manage cases, test them, and print the result of each case.
+    """Manage each case, run it, and print its result.
+
+    Use cases:
+        Test a solution that finds the median of numbers from two sorted arrays:
+        # content of solution.py
+        # class Solution(object):
+        #     def findMedianSortedArrays(self, nums1, nums2):
+        #         '''
+        #         :type nums1: List[int]
+        #         :type nums2: List[int]
+        #         :rtype: float
+        #         '''
+        #         # code here
+
+        >>> from rapidtest import Test, Case
+        >>> from solution import Solution
+        >>>
+        >>> with Test(Solution):
+        ...     Case([1, 3], [2], result=2.0)
+        ...     Case([1, 2], [3, 4], result=2.5)
+        ...
+        ..
+        Passed all 2 test cases
+
+
+        >>> from statistics import median
+        >>> from rapidtest import randints
+        >>>
+        >>> with Test(Solution) as test:
+        ...     @test
+        ...     def random_numbers(i):
+        ...         '''
+        ...         :param int i: number of times this function is called starting from 0
+        ...         :return Case:
+        ...         '''
+        ...         nums1 = sorted(randints(count=i, max_num=i * 100))
+        ...         nums2 = sorted(randints(count=max(i, 1), max_num=i * 100))
+        ...         result = float(median(nums1 + nums2))
+        ...         return Case(nums1, nums2, result=result)
+        ...
+        ....................................................................................................
+        Passed all 100 test cases
 
     :param target: same as the keyword argument 'target' of the Case class
     :param kwargs: same as those of the Case class
@@ -100,13 +141,13 @@ class Test(object):
 
     def add_cases(self, cases):
         """
-        :param iterable cases:
+        :param Iterable[Case] cases:
         """
         for case in cases:
             self.add_case(case)
 
     def _add_generator(self, gen):
-        """Add a iterable of cases which are lazy-evaluated."""
+        """Add an iterable of cases which are lazy-evaluated."""
         self.separate()
 
         gen_cases = (self._initialize(case) for case in gen)
@@ -138,7 +179,7 @@ class Test(object):
 
             try:
                 self._run_cases(session)
-            except Exception:
+            except:
                 # If case generator raises an exception, it is stopped. No need to recycle it
                 if self.unborn_cases == last_unborn_cases:
                     # iterator did not raise an exception. It is the case.run()
@@ -157,7 +198,7 @@ class Test(object):
                     case = next(cases)
                 except StopIteration:
                     break
-                except Exception:
+                except:
                     print('?', end='')
                     stdout.flush()
                     has_printed = True
@@ -196,7 +237,7 @@ class Test(object):
 
     def summary(self):
         """
-        :return (int, str): exit code and description
+        :return Tuple[int, str]: exit code and description
         """
         if self.unborn_cases:
             return self.EXIT_GEN_ERR, None

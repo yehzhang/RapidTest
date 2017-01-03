@@ -93,7 +93,7 @@ def randints(count=20, unique=False, max_num=100, min_num=0):
     :param bool unique: whether generate no duplicates
     :param int max_num: maximum possible number in the list
     :param int min_num: minimum possible number in the list
-    :return [int]: a `count` length/ list of random integers chosen from the range [min_num,
+    :return List[int]: a `count` length/ list of random integers chosen from the range [min_num,
         max_num]
     """
     count, min_num, max_num = map(int, (count, min_num, max_num))
@@ -126,7 +126,8 @@ def randlist(count, alphabet, unique=False):
     """Generate a list of symbols from alphabet
 
     :param bool unique: whether there will not be duplicates in returned list
-    :return [type(alphabet), ...]: a `count` length list of random symbols chosen from `alphabet`
+    :param Iterable[T] alphabet:
+    :return List[T]: a `count` length list of random symbols chosen from `alphabet`
     """
     if unique:
         res = sample(alphabet, count)
@@ -202,7 +203,7 @@ def natural_format(fmt, *args, **kwargs):
     """Format by plurality of item.
 
     :param str fmt:
-    :param iterable item:
+    :param Iterable[Any] item:
     :param str last_sep: defaults to 'and'
     """
     item = kwargs.get('item')

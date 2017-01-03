@@ -18,7 +18,7 @@ class Target(BaseTarget):
     def __init__(self, target, target_name=None, env=None):
         """Factory class for building executors
 
-        :param callable|str target: a native object or a path to an external file, which contains
+        :param Callable|str target: a native object or a path to an external file, which contains
             the structure to be tested
         :param str target_name: if target is a path, this indicates the name of the structure to
             test

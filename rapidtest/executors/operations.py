@@ -6,7 +6,7 @@ class Operation(object):
     def __init__(self, name=None, args=(), collect=False):
         """
         :param str|None name: name of function
-        :param (any, ...) args:
+        :param Tuple[Any, ...] args:
         :param bool collect:
         """
         self.name = name
@@ -53,7 +53,7 @@ class Operations(object):
 
     def to_params(self):
         """
-        :return [any]): params
+        :return List[Dict]): params
         """
         params = [{
             'in_place': bool(self.in_place_selector)

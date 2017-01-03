@@ -23,9 +23,9 @@ class OperationOutput(Output):
         """
         :param str func_name: name of function from target to be called. Ignored if target is
             Runnable
-        :param (any, ...) args: arguments to be called with
+        :param Tuple[any, ...] args: arguments to be called with
         :param bool collect: whether returned value of this operation is collected or not
-        :param any val: returned value of this operation. Required iff collect is True
+        :param Any val: returned value of this operation. Required iff collect is True
         """
         self.func_name = func_name
         self.args = args
@@ -71,7 +71,7 @@ class ExecutionOutput(Output):
 
     def __init__(self, outputs):
         """
-        :param iterable[Output] outputs:
+        :param Iterable[Output] outputs:
         """
         self._checked_outputs = []
         self._pending_outputs = iter(outputs)

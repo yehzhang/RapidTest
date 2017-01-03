@@ -5,7 +5,7 @@ from .utils import iterable, identity, natural_join, nop, sentinel, Sentinel, na
 
 class Case(object):
     """Contains a set of basic information required to test the target. All of the kwargs below
-    could be specified in `Test` constructor.
+    could be specified in `Test` constructor. See docstring of `Test` for general use cases.
 
     :param args: `args` has two formats: arguments or a sequence of operations.
 
@@ -28,23 +28,23 @@ class Case(object):
     :param bool operation: whether args are of the second format or the first one. Default to
         use the first format.
 
-    :param callable|Target|BaseExecutor target: a function or class to be tested. If it is a class
+    :param Callable|Target|BaseExecutor target: a function or class to be tested. If it is a class
         and `operation` is False, the only public method will be called, if any.
         Alternatively target can be a value returned by make_target().
         # TODO support other languages
 
-    :param callable|iterable post_proc: a post-processing function that takes a returned value and
-        processes it, or an sequence of such functions to be applied from left to right.
+    :param Callable|Iterable[Callable] post_proc: a post-processing function that takes a returned
+        value and processes it, or an sequence of such functions to be applied from left to right.
 
         Note that post_proc will be applied to result, if it is a plain value.
 
-    :param any result: if this parameter is a class or function, it will be treated as another
+    :param Any result: if this parameter is a class or function, it will be treated as another
         `target`, with its output being compared.
 
         Otherwise, this parameter could only be used when `operation` is False, which means
         `result` is the asserted returned value of `target`.
 
-    :param bool|int|[int] in_place: whether output should be in-place modified arguments or
+    :param bool|int|List[int] in_place: whether output should be in-place modified arguments or
         returned value. If in_place is an integer or a list of integers, only arguments on the
         corresponding indices are collected.
     """
@@ -292,8 +292,8 @@ class ArgsParser(object):
 
     def parse(self, args):
         """
-        :return (any, ...), [Operation]: the first returned value is arguments to be passed to
-            the constructor of target
+        :return List[Tuple[Any, ...], List[Operation]]: the first returned value is arguments to be
+            passed to the constructor of target
         """
         self.init_args = ()
         self.operations = []

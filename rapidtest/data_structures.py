@@ -23,7 +23,7 @@ class TreeNode(BaseTreeNode):
 
         :param function: a function that takes a TreeNode and returns a result
         :param order: either TreeNode.INORDER, TreeNode.PREORDER, or TreeNode.POSTORDER
-        :return [any]:
+        :return List[Any]:
         """
 
         def _map_wrapper(f):
@@ -69,26 +69,26 @@ class TreeNode(BaseTreeNode):
 
     def inorder(self):
         """
-        :return [int]: inorder traversal of nodes' values
+        :return List[int]: inorder traversal of nodes' values
         """
         return self.traverse_map(type(self).get_val, self.INORDER)
 
     def postorder(self):
         """
-        :return [int]: postorder traversal of nodes' values
+        :return List[int]: postorder traversal of nodes' values
         """
         return self.traverse_map(type(self).get_val, self.POSTORDER)
 
     def preorder(self):
         """
-        :return [int]: preorder traversal of nodes' values
+        :return List[int]: preorder traversal of nodes' values
         """
         return self.traverse_map(type(self).get_val, self.PREORDER)
 
     def flatten(self):
         """Inverse function of TreeNode.from_iterable
 
-        :return [int|None]:
+        :return List[int|None]:
         """
         vals = []
 

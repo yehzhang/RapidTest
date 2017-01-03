@@ -5,7 +5,7 @@ from rapidtest.utils import Reprable
 
 def get_dependencies():
     """
-    :return {str: type}: {class_name: class}
+    :return Dict[str, type]: {class_name: class}
     """
     dependencies = {}
     pkg_name, _ = __name__.rsplit('.', 1)
@@ -66,7 +66,7 @@ class ListNode(Node):
 
     def _gen(self):
         """
-        :return generator: generator that traverses self
+        :return Iterator[T]: generator that traverses self
         """
         while self:
             yield self.val

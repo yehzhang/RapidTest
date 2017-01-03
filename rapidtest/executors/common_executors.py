@@ -3,7 +3,7 @@ import re
 import shlex
 from os import path
 from subprocess import Popen
-from time import sleep
+from threading import Timer
 
 from .clients import ExecutionRPCClient
 from .dependencies import get_dependencies
@@ -37,14 +37,14 @@ class BaseExecutor(object):
     def execute_operations(self, operations):
         """
         :param Operations operations:
-        :return iterable[OperationOutput]:
+        :return Iterable[OperationOutput]:
         """
         raise NotImplementedError
 
     def finalize_operation(self, operation, output):
         """
         :param Operation operation:
-        :param any output: returned value from the operation
+        :param Any output: returned value from the operation
         :return OperationOutput:
         """
         if self.in_place_selector:
@@ -117,7 +117,7 @@ class ExternalExecutorFabric(type):
     def get(mcs, env, default=None):
         """
         :param str env:
-        :param any default:
+        :param Any default:
         :return: type extends ExternalExecutor
         """
         if env is None:
@@ -134,7 +134,7 @@ class ExternalExecutorFabric(type):
     @classmethod
     def supported_environments(mcs):
         """
-        :return [str]:
+        :return List[str]:
         """
         return [E.ENVIRONMENT for E in mcs._executors.values()]
 
@@ -237,8 +237,8 @@ class ExternalExecutor(with_metaclass(ExternalExecutorFabric, BaseExecutor)):
     def prepare_external_target(self, socket_address):
         """Called once to prepare external resources.
 
-        :param (str, id) socket_address:
-        :return any: identification of external target for client
+        :param Tuple[str, int] socket_address:
+        :return Any: identification of external target for client
         """
         return self.new_target_id()
 
@@ -272,20 +272,16 @@ class ExternalExecutor(with_metaclass(ExternalExecutorFabric, BaseExecutor)):
     def wait_terminate(proc, timeout=None):
         """
         :param Popen proc:
-        :param int timeout: in seconds
-        :return any: retcode
+        :param int timeout: in seconds. Kill process if it times out
+        :return Any: retcode
         """
-        if timeout is None:
-            proc.wait()
-        else:
-            for _ in range(int(timeout / 0.1)):
-                if proc.poll() is None:
-                    sleep(0.1)
-                else:
-                    break
-            else:
+        if timeout is not None:
+            def _t():
                 proc.kill()
-        return proc.returncode
+
+            Timer(timeout, _t).start()
+
+        return proc.wait()
 
 
 class CompiledExecutor(ExternalExecutor):

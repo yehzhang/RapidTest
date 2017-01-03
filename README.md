@@ -17,8 +17,8 @@ from solution import Solution
 with Test(Solution):
     Case([1, 3], [2], result=2.0)
     Case([1, 2], [3, 4], result=2.5)
-
-
+```
+```Python
 # content of solution.py
 class Solution(object):
     def findMedianSortedArrays(self, nums1, nums2):
@@ -94,12 +94,12 @@ TreeNode(6, (3, (1, 0, 2), (5, 4, #)), (8, 7, 9))
 
 ### Advanced features
 
-- [Using operations](./advanced_features.md#using-operations) when there are multiple methods to be called.
+- Use [operations](./advanced_features.md#using-operations) when there are multiple methods to call.
 
 
 ### Other features
 
-- You can use `ListNode` and `TreeNode` in your `solution.py` directly like you did in the LeetCode editor without first importing them.
+- You can use `ListNode` and `TreeNode` directly in your `solution.py` like you did in the LeetCode editor without first importing them.
 - Sometimes the order of returned elements in a list does not matter. You may specify this situation like:
     ```Python
     from rapidtest import Test, unordered
@@ -114,9 +114,7 @@ TreeNode(6, (3, (1, 0, 2), (5, 4, #)), (8, 7, 9))
 
 
 ## Installation
-```
-$ python setup.py install
-```
+Download the package and run `python setup.py install`.
 
 ## Python versions
 RapidTest supports Python 2.7 and 3.4+.
