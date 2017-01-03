@@ -5,11 +5,16 @@ from collections import Sequence
 PY3 = sys.version_info[0] == 3
 PY2 = sys.version_info[0] == 2
 
+PRIMITIVE_TYPES = int, float, bool, str, type(None)
+
 if PY3:
     # noinspection PyUnresolvedReferences
     import queue
 
     basestring = str
+
+    range = range
+
 
 if PY2:
     # noinspection PyUnresolvedReferences
@@ -18,6 +23,9 @@ if PY2:
     import Queue as queue
 
     range = xrange
+
+    PRIMITIVE_TYPES += long, bool, unicode
+
 
 def is_sequence(x):
     return isinstance(x, Sequence) and not isstring(x)
@@ -100,12 +108,20 @@ if PY3:
         # Is either arg an exception class (e.g. IndexError) rather than
         # instance (e.g. IndexError('my message here')? If so, pass the
         # name of the class undisturbed through to "raise ... from ...".
-        if isinstance(exc, type) and issubclass(exc, Exception):
-            exc = exc.__name__
-        if isinstance(cause, type) and issubclass(cause, Exception):
-            cause = cause.__name__
+        def normalize(exc):
+            if isinstance(exc, type) and issubclass(exc, Exception):
+                exc = exc.__name__
+                T = exc
+            else:
+                T = type(exc)
+            # In case exception is dynamically generated
+            mylocals.setdefault(T.__name__, T)
+
         execstr = "raise " + _repr_strip(exc) + " from " + _repr_strip(cause)
         myglobals, mylocals = _get_caller_globals_and_locals()
+        mylocals = dict(mylocals)
+        normalize(exc)
+        normalize(cause)
         exec (execstr, myglobals, mylocals)
 
 

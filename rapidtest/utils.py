@@ -2,14 +2,12 @@ import string
 from itertools import count, chain, combinations
 from random import randint, random, sample, choice
 
-from ._compat import isstring
+from ._compat import isstring, PRIMITIVE_TYPES, range
 
 sentinel = object()
 
 MAX_INT = 2 ** 31 - 1
 MIN_INT = -(2 ** 31)
-
-PRIMITIVE_TYPES = int, float, bool, str
 
 
 def rec_list(x):
@@ -53,7 +51,11 @@ def super_len(x):
 
 
 def iterable(x):
-    return hasattr(x, '__iter__')
+    try:
+        iter(x)
+    except TypeError:
+        return False
+    return True
 
 
 def lenable(x):
@@ -149,16 +151,16 @@ class OneTimeSetProperty(object):
     def __get__(self, instance, owner):
         x = getattr(instance, self.name, self.default)
         if x is sentinel:
-            raise AttributeError('Property is not set yet')
+            raise AttributeError('property is not set yet')
         return x
 
     def __set__(self, instance, value):
         if hasattr(instance, self.name):
-            raise AttributeError('Cannot reset attribute')
+            raise AttributeError('cannot reset attribute')
         setattr(instance, self.name, value)
 
     def __delete__(self, instance):
-        raise AttributeError('Cannot delete attribute')
+        raise AttributeError('cannot delete attribute')
 
 
 class Reprable(object):
@@ -183,7 +185,7 @@ def natural_join(last_sep, strs):
     """Join strs as if in a natural sentence."""
     strs = list(strs)
     if not all(map(isstring, strs)):
-        raise TypeError('Some of strs is not of type str')
+        raise TypeError('some of strs is not of type str')
 
     if not strs:
         return ''
@@ -205,9 +207,7 @@ def natural_format(fmt, *args, **kwargs):
     """
     item = kwargs.get('item')
     if item is None:
-        raise TypeError(natural_join.__name__ + "() missing 1 required keyword argument: 'item'")
-    if not iterable(item):
-        raise TypeError("'item' is not iterable")
+        raise TypeError(natural_format.__name__ + "() missing 1 required keyword argument: 'item'")
 
     item = list(map(str, item))
     if len(item) == 0:
@@ -226,3 +226,9 @@ def powerset(iterable):
     """powerset([1,2,3]) --> () (1,) (2,) (3,) (1,2) (1,3) (2,3) (1,2,3)"""
     s = list(iterable)
     return chain.from_iterable(combinations(s, r) for r in range(len(s) + 1))
+
+
+class Dictable(object):
+    def __iter__(self):
+        for item in self.__dict__.items():
+            yield item
