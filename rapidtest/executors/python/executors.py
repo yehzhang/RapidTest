@@ -3,7 +3,7 @@ from inspect import isclass, getmembers, ismethod, getmodule
 
 from ..common_executors import BaseExecutor
 from ..dependencies import get_dependencies
-from ..exceptions import MSG_CANNOT_GUESS_METHOD
+from ..rpc.exceptions import MSG_CANNOT_GUESS_METHOD
 
 
 class NativeExecutor(BaseExecutor):

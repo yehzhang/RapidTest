@@ -5,10 +5,8 @@ from os import path
 from subprocess import Popen
 from threading import Timer
 
-from .clients import ExecutionRPCClient
-from .dependencies import get_dependencies
-from .exceptions import ExternalException
 from .outputs import ExecutionOutput
+from .rpc import ExecutionTargetRPCClient
 from .._compat import with_metaclass, raise_from, is_sequence, PRIMITIVE_TYPES as P_TYPES
 from ..utils import identity, natural_format
 
@@ -159,18 +157,14 @@ class ExternalExecutorFabric(type):
         return mcs.get(env)
 
 
-def get_external_dependencies():
-    ds = get_dependencies()
-    ds.update({T.__name__: T for T in (ExternalException,)})
-    return ds
-
-
 class ExternalExecutor(with_metaclass(ExternalExecutorFabric, BaseExecutor)):
     _SOCKET_ADDRESS = 'localhost', 0
 
-    client = ExecutionRPCClient(_SOCKET_ADDRESS, get_external_dependencies())
+    client = ExecutionTargetRPCClient(_SOCKET_ADDRESS)
 
     RETRY_TARGET = 1
+    CONNECT_TIMEOUT = 1
+    REQUEST_TIMEOUT = 5
 
     running_options = None
 
@@ -200,7 +194,8 @@ class ExternalExecutor(with_metaclass(ExternalExecutorFabric, BaseExecutor)):
 
         # Start target
         if self.curr_target_id is None:
-            self.curr_target_id = self.prepare_external_target(addr)
+            self.curr_target_id = self.new_target_id()
+            self.prepare_external_target(addr)
 
         self.run_external_target()
 
@@ -225,8 +220,9 @@ class ExternalExecutor(with_metaclass(ExternalExecutorFabric, BaseExecutor)):
         for i in range(max(self.RETRY_TARGET, 1)):
             try:
                 self.run()
+                self.client.connect(self.curr_target_id, self.CONNECT_TIMEOUT)
                 output = self.client.request(self.curr_target_id, self.client.METHOD_EXECUTE,
-                                             request_params)
+                                             request_params, self.REQUEST_TIMEOUT)
             except OSError as e:
                 if i == self.RETRY_TARGET - 1:
                     raise_from(IOError('failed to communicate with target properly'), e)
@@ -238,9 +234,8 @@ class ExternalExecutor(with_metaclass(ExternalExecutorFabric, BaseExecutor)):
         """Called once to prepare external resources.
 
         :param Tuple[str, int] socket_address:
-        :return Any: identification of external target for client
         """
-        return self.new_target_id()
+        raise NotImplementedError
 
     def run_external_target(self):
         """Non-blocking method to start a process running the target. """
@@ -258,6 +253,9 @@ class ExternalExecutor(with_metaclass(ExternalExecutorFabric, BaseExecutor)):
         raise NotImplementedError
 
     def new_target_id(self):
+        """
+        :return Any: identification of external target for client
+        """
         return 'Target:{}:{}:{}'.format(self.ENVIRONMENT, self.target_name, self.count_executions)
 
     @staticmethod
@@ -269,19 +267,21 @@ class ExternalExecutor(with_metaclass(ExternalExecutorFabric, BaseExecutor)):
         return Popen(shlex.split(cmd))
 
     @staticmethod
-    def wait_terminate(proc, timeout=None):
+    def wait_terminate(proc, timeout):
         """
         :param Popen proc:
         :param int timeout: in seconds. Kill process if it times out
         :return Any: retcode
         """
-        if timeout is not None:
-            def _t():
-                proc.kill()
 
-            Timer(timeout, _t).start()
+        def _t():
+            proc.kill()
 
-        return proc.wait()
+        t = Timer(timeout, _t)
+        t.start()
+        retcode = proc.wait()
+        t.cancel()
+        return retcode
 
 
 class CompiledExecutor(ExternalExecutor):
@@ -296,7 +296,6 @@ class CompiledExecutor(ExternalExecutor):
             raise RuntimeError('compilation timed out')
         elif ret_code != 0:
             raise RuntimeError('compilation failed')
-        return super(CompiledExecutor, self).prepare_external_target(socket_address)
 
     def get_compile_command(self):
         raise NotImplementedError

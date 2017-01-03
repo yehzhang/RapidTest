@@ -1,144 +1,11 @@
-from json import JSONDecoder, JSONEncoder
 from select import select
 from socket import socket
 from threading import Lock, Thread, Condition
 
-from .._compat import queue, raise_from
-from ..utils import Dictable, natural_join
-
-
-class ExecutionRPCClient(object):
-    _count_requests = 0
-
-    RECEIVE_TIMEOUT = 10000  # TODO
-    # RECEIVE_TIMEOUT = 10
-
-    METHOD_HELLO = 'hello'  # first server send to client a notification with target_id as params
-    METHOD_EXECUTE = 'execute'
-    METHOD_TERMINATE = 'terminate'
-    WHO_I_AM = 'target'
-
-    def __init__(self, addr, obj_types):
-        """
-        :param Tuple[str, int] addr:
-        :param Dict[str, type] obj_types:
-        """
-        self.acceptor = None
-        self.addr = addr
-        self.decoder = JSONDecoder(object_hook=self._get_object_hook_handler(obj_types))
-        self.encoder = JSONEncoder(separators=(',', ':'))
-
-    def __del__(self):
-        self.close()
-
-    def run(self):
-        """
-        :return Tuple[str, int]: address of socket
-        """
-        if self.acceptor is None:
-            self.acceptor = Acceptor(self)
-            self.addr = self.acceptor.get_address()
-        return self.addr
-
-    def close(self):
-        if self.acceptor is not None:
-            ator = self.acceptor
-            ator.close()
-            ator.join()
-            self.acceptor = None
-            ator.raise_()
-
-    def request(self, target, method, params):
-        """Send request and wait for response.
-
-        :param Any target:
-        :param str method:
-        :param List[Any] params:
-        :return Response:
-        """
-        request = Request(method, params, self.new_id())
-        self._send(target, request)
-        return self._receive(target)
-
-    def notify(self, target, method, params):
-        """Send notification and return immediately.
-
-        :param Any target:
-        :param str method:
-        :param List[Any] params:
-        """
-        request = Request(method, params)
-        self._send(target, request)
-
-    def _send(self, target, request):
-        s = self.acceptor.get_sender(target)
-        s.send(request)
-
-    def _receive(self, target):
-        # TODO add id argument
-        r = self.acceptor.get_receiver(target)
-        try:
-            receiving = r.receive(self.RECEIVE_TIMEOUT)
-        except queue.Empty:
-            # TODO send timeout to target so that I can tell IOError from TLE. Or is that important?
-            raise_from(RuntimeError('target did not respond in time'), None)
-        else:
-            # TODO should keep receivings separate if it is not a response to this request (same id)
-            # or a notification
-            if isinstance(receiving, Exception):
-                raise receiving
-            else:
-                error = getattr(receiving, 'error', None)
-                if error:
-                    msg = 'exception raised while executing external target'
-                    ExcWrapper, exc = error.to_exception()
-                    raise_from(ExcWrapper(msg), exc)
-            return receiving
-
-    @classmethod
-    def _get_object_hook_handler(cls, obj_types):
-        def _object_hook_handler(d):
-            ctor_pair = d.pop('__jsonclass__', None)
-            if ctor_pair is not None:
-                ctor_name, params = ctor_pair
-                if ctor_name not in obj_types:
-                    raise NameError('name {} is not defined'.format(repr(ctor_name)))
-                T = obj_types[ctor_name]
-                if isinstance(params, dict):
-                    obj = T(**params)
-                else:
-                    obj = T(*params)
-                for k, v in d.items():
-                    setattr(obj, k, v)
-            else:
-                obj = d
-            return obj
-
-        return _object_hook_handler
-
-    @classmethod
-    def new_id(cls):
-        _id = '{}:request:{}'.format(cls.__name__, cls._count_requests)
-        cls._count_requests += 1
-        return _id
-
-
-class Request(Dictable):
-    """Request in JSON-RPC"""
-
-    def __init__(self, method=None, params=None, id=None):
-        self.method = method
-        self.params = params
-        self.id = id
-
-
-class Response(Dictable):
-    """Response in JSON-RPC"""
-
-    def __init__(self, result=None, error=None, id=None):
-        self.result = result
-        self.error = error
-        self.id = id
+from .exceptions import TimeoutError
+from .utils import Request, Response
+from ..._compat import queue
+from ...utils import Dictable, natural_join
 
 
 class ThreadedSocketWorker(object):
@@ -180,18 +47,19 @@ class ThreadedSocketWorker(object):
             except BaseException as e:
                 # Store exception raised in child thread
                 import traceback
-                print('Worker ends with exception: ' + traceback.format_exc())
+                print(
+                    'Worker {} ends with exception: {}'.format(self, traceback.format_exc()))
                 self.exception = e
             finally:
                 self._working = False
                 self.close()
 
-        t = Thread(target=_auto_close, name=self.get_name())
+        t = Thread(target=_auto_close, name=str(self))
         t.daemon = True
         t.start()
         return t
 
-    def get_name(self):
+    def __str__(self):
         return '{}-{}'.format(type(self).__name__, self.id)
 
     def handle(self):
@@ -221,7 +89,7 @@ class ThreadedSocketWorker(object):
             d = None
             try:
                 r, _, _ = select([s], [], [])
-            except IOError:
+            except OSError:
                 import traceback
                 traceback.print_exc()
                 pass
@@ -231,16 +99,18 @@ class ThreadedSocketWorker(object):
             if not d:
                 # Socket is probably closed before data is fully transmitted.
                 # Discard everything as if nothing was received.
+                length = 0
                 buf = ''
                 break
             buf += d
         # Store unconsumed buf, if any
         self._read_buf = buf[length:]
 
+        assert isinstance(length, int)
         if length == 0:
             return None
+        print('Python received {} data: {}'.format(length, repr(buf[:length])))
         obj = self.client.decoder.decode(buf[:length])
-        print('Python received data: {}'.format(obj))
         if isinstance(obj, dict):
             for T in (Response, Request):
                 try:
@@ -294,75 +164,86 @@ class Acceptor(ThreadedSocketWorker):
             target = request.params[0]
             r = Receiver(self, target, conn)
             s = Sender(self, target, conn)
+            print('Python created communicators: {}, {}'.format(r, s))
             with self.workers_lock:
                 self.workers[target] = r, s
                 self.worker_created.notify_all()
 
-        for r, s in self.workers.values():
-            r.close()
-            s.close()
-            print('workers joined')
+        print('Workers to remove: {}'.format(self.workers))
+        for target in self.workers:
+            self.remove_workers(target)
 
     def close(self):
         # Accepting socket is a little hard to close
-        # TODO any better idea?
-        closer = socket()
-        try:
-            closer.connect(self.get_address())
-        except OSError:
-            pass
-        else:
-            closer.close()
+        # # TODO any better idea?
+        # closer = socket()
+        # try:
+        #     closer.connect(self.get_address())
+        # except OSError:
+        #     pass
+        # else:
+        #     closer.close()
 
         super(Acceptor, self).close()
 
-    def _get_workers(self, target):
+    # noinspection PyUnboundLocalVariable
+    def get_workers(self, target, timeout=None):
+        """
+        :param Any target:
+        :param int timeout:
+        :return Tuple[Communicator, Communicator]: (receiver, sender)
+        """
         with self.workers_lock:
-            while target not in self.workers:
-                self.worker_created.wait()
+            if timeout is None:
+                while target not in self.workers:
+                    self.worker_created.wait()
+            else:
+                self.worker_created.wait(timeout)
+                if target not in self.workers:
+                    raise TimeoutError('target did not connect in time')
             workers = self.workers[target]
         if workers is None:
             raise RuntimeError('connection is already closed.')
         return workers
 
+    # noinspection PyUnboundLocalVariable
     def remove_workers(self, target):
+        """Remove workers to release memory. Server calls this method when no longer communications
+            with target. """
         with self.workers_lock:
-            # if target not in self.workers:
-            #     raise RuntimeError('connection does not exist.')
+            if target not in self.workers:
+                raise RuntimeError('connection does not exist.')
+            r, s = self.workers[target]
             self.workers[target] = None
 
-    def get_receiver(self, target):
-        r, _ = self._get_workers(target)
-        return r
-
-    def get_sender(self, target):
-        _, s = self._get_workers(target)
-        return s
+        r.close()
+        s.close()
+        r.join()
+        s.join()
 
 
 # noinspection PyAbstractClass
 class Communicator(ThreadedSocketWorker):
     def __init__(self, acceptor, target, socket):
         self.target = target
+        self.channel = queue.Queue()
+        self.acceptor = acceptor
 
         super(Communicator, self).__init__(acceptor.client, socket)
 
-        self.acceptor = acceptor
-        self.channel = queue.Queue()
-
     def close(self):
-        self.acceptor.remove_workers(self.target)
-
         items = []
         while not self.channel.empty():
             items.append(self.channel.get())
         print('{} closed. In channel: {}'.format(type(self).__name__,
                                                  natural_join('and', map(repr, items))))
+        for item in items:
+            self.channel.put_nowait(item)
 
         super(Communicator, self).close()
 
-    def get_name(self):
-        return '{}:{}'.format(super(Communicator, self).get_name(), self.target)
+    def __str__(self):
+        return '{}:{}'.format(super(Communicator, self).__str__(), self.target)
 
     def _non_worker_thread_channel(self):
         """Make sure exception is passed to the main thread and prevents deadlock."""
@@ -391,7 +272,7 @@ class Sender(Communicator):
 
 
 class Receiver(Communicator):
-    def receive(self, timeout=None):
+    def receive(self, timeout):
         """Receive the next transmission from target. Thread-safe.
 
         :return Request|Response:
@@ -403,7 +284,9 @@ class Receiver(Communicator):
             while True:
                 receiving = self._read()
                 if receiving is None:
-                    raise RuntimeError('nothing to receive')
+                    break
+                print('{} put {}'.format(self, receiving))
                 self.channel.put_nowait(receiving)
         except Exception as e:
+            print('{} put {}'.format(self, e))
             self.channel.put_nowait(e)

@@ -1,4 +1,4 @@
-from ..utils import Dictable
+from rapidtest.utils import Dictable
 
 MSG_CANNOT_GUESS_METHOD = '''cannot find the target method. You may specify operations as \
 arguments to Case if there are multiple methods to be called, or prepend all names of private \
@@ -17,9 +17,13 @@ class ExternalRuntimeError(ExternalError):
     pass
 
 
+class TimeoutError(OSError):
+    pass
+
+
 class ExternalException(Dictable):
     def __init__(self, name, message=None, stack_trace=None, runtime=False):
-        self.name = name
+        self.name = str(name)
         self.message = message or ''
         self.stack_trace = (stack_trace or '').rstrip()
         self.runtime = runtime

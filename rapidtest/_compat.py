@@ -117,11 +117,11 @@ if PY3:
             # In case exception is dynamically generated
             mylocals.setdefault(T.__name__, T)
 
-        execstr = "raise " + _repr_strip(exc) + " from " + _repr_strip(cause)
         myglobals, mylocals = _get_caller_globals_and_locals()
         mylocals = dict(mylocals)
         normalize(exc)
         normalize(cause)
+        execstr = "raise " + _repr_strip(exc) + " from " + _repr_strip(cause)
         exec (execstr, myglobals, mylocals)
 
 

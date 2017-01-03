@@ -4,8 +4,8 @@ from shutil import rmtree, copytree
 from string import Template
 from tempfile import mkdtemp
 
-from rapidtest.executors.exceptions import MSG_CANNOT_GUESS_METHOD
 from ..common_executors import CompiledExecutor
+from ..rpc.exceptions import MSG_CANNOT_GUESS_METHOD
 
 
 class JavaExecutor(CompiledExecutor):
@@ -53,7 +53,7 @@ class JavaExecutor(CompiledExecutor):
         for t in self.TEMPLATE_TARGETS:
             self._replace_template(t)
 
-        return super(JavaExecutor, self).prepare_external_target(socket_address)
+        super(JavaExecutor, self).prepare_external_target(socket_address)
 
     def close(self):
         super(JavaExecutor, self).close()
@@ -93,7 +93,7 @@ class JavaExecutor(CompiledExecutor):
             host_name=self.client.addr[0],
             host_port=self.client.addr[1],
             target_id=self.curr_target_id,
-            exc_msg_cannot_guess_method=MSG_CANNOT_GUESS_METHOD)
+            exc_msg_guess_method=MSG_CANNOT_GUESS_METHOD)
 
         output_path = path.join(self.temp_package_path, filename)
         with open(output_path, 'w') as fout:

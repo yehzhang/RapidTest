@@ -1,4 +1,4 @@
-from .clients import Request
+from .rpc import Request
 from .outputs import OperationOutput
 
 
