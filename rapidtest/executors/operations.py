@@ -1,5 +1,5 @@
-from .outputs import OperationOutput
 from .clients import Request
+from .outputs import OperationOutput
 
 
 class Operation(object):

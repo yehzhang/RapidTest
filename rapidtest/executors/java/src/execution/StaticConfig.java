@@ -3,14 +3,15 @@ package execution;
 import java.net.InetAddress;
 
 public class StaticConfig {
-    //    public static final Class<{{ TARGET_NAME }}> TARGET_CLASS;
-    public static final Class<Solution> TARGET_CLASS = Solution.class;
-    public static final String REQUEST_ID_PREFIX = "Java_";
+    public static final String TARGET_ID = "Java_target_1";
+    public static final Class<?> TARGET_CLASS = null;
+    public static final String METHOD_HELLO = "hello";
     public static final String METHOD_EXECUTE = "execute";
-    public static final String METHOD_STOP = "close";
+    public static final String METHOD_TERMINATE = "terminate";
     public static final InetAddress HOST_ADDR;
-    public static final int HOST_PORT = 1234;
-    public static final String WHO_I_AM = "java_executor_1";
+    public static final int HOST_PORT = 61039;
+    public static final String CANNOT_GUESS = null;
+
 
     static {
         try {

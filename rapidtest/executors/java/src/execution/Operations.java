@@ -21,15 +21,17 @@ public class Operations extends Request {
         this.inPlace = inPlace;
     }
 
-    <T> Response execute(Class<T> target) throws InvocationTargetException,
+    /**
+     * @return Output of executing target
+     */
+    <T> Object execute(Class<T> target) throws InvocationTargetException,
             NoSuchMethodException, InstantiationException, IllegalAccessException {
         T instance = newInstance(target);
-        Object output = invoke(target, instance);
-        return new Response(output, id);
+        return invoke(target, instance);
     }
 
     @Override
-    Object invoke(Class target, Object instance) throws NoSuchMethodException,
+    <T> Object invoke(Class<T> target, T instance) throws NoSuchMethodException,
             InvocationTargetException, IllegalAccessException {
         List<Object> output = new ArrayList<>();
         for (Request op : operations) {
@@ -43,7 +45,7 @@ public class Operations extends Request {
     @Override
     <T> T newInstance(Class<T> target) throws NoSuchMethodException, IllegalAccessException,
             InvocationTargetException, InstantiationException {
-        return initOperation.newInstance(target);
+        return initOperation == null ? target.newInstance() : initOperation.newInstance(target);
     }
 
     final Request initOperation;
@@ -53,21 +55,22 @@ public class Operations extends Request {
     static class Deserializer implements JsonDeserializer<Operations> {
 
         @Override
-        public Operations deserialize(JsonElement jsonElement, Type type,
-                                      JsonDeserializationContext jsonDeserializationContext)
+        public Operations deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext
+                context)
+
                 throws JsonParseException {
-            JsonObject request = jsonElement.getAsJsonObject();
+            JsonObject request = json.getAsJsonObject();
 
             Iterator<JsonElement> iterParams = request.get("params").getAsJsonArray().iterator();
 
             JsonObject kwargs = iterParams.next().getAsJsonObject();
             Boolean inPlace = kwargs.get("in_place").getAsBoolean();
 
-            Request initOperation = iterParams.hasNext() ? jsonDeserializationContext.deserialize
-                    (iterParams.next(), Request.class) : null;
+            Request initOperation = iterParams.hasNext() ? context.deserialize(iterParams.next(),
+                    Request.class) : null;
             List<Request> operations = new ArrayList<>();
-            iterParams.forEachRemaining(param -> operations.add(jsonDeserializationContext
-                    .deserialize(param, Request.class)));
+            iterParams.forEachRemaining(param -> operations.add(context.deserialize(param,
+                    Request.class)));
 
             String method = request.get("method").getAsString();
             String id = request.get("id").getAsString();

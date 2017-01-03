@@ -1,8 +1,8 @@
 from inspect import isclass
 
 from .common_executors import BaseExecutor, ExternalExecutorFabric
-from .operations import Operation, Operations
 from .java import *
+from .operations import Operation, Operations
 from .python import *
 from ..utils import isstring
 

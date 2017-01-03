@@ -1,9 +1,9 @@
 from copy import deepcopy
 from inspect import isclass, getmembers, ismethod, getmodule
 
-from ..exceptions import MSG_CANNOT_GUESS_METHOD
-from ..dependencies import get_dependencies
 from ..common_executors import BaseExecutor
+from ..dependencies import get_dependencies
+from ..exceptions import MSG_CANNOT_GUESS_METHOD
 
 
 class NativeExecutor(BaseExecutor):

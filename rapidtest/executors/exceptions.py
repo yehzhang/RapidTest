@@ -8,8 +8,10 @@ methods with underscores.'''
 class ExternalError(Exception):
     pass
 
+
 class ExternalEnvironmentError(ExternalError):
     pass
+
 
 class ExternalRuntimeError(ExternalError):
     pass

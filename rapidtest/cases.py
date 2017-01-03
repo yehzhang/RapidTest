@@ -1,6 +1,6 @@
+from ._compat import is_sequence, isstring
 from .executors import BaseExecutor, Operation, Operations, Target, BaseTarget
 from .utils import iterable, identity, natural_join, nop, sentinel, Sentinel, natural_format
-from ._compat import is_sequence, isstring
 
 
 class Case(object):

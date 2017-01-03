@@ -15,7 +15,6 @@ if PY3:
 
     range = range
 
-
 if PY2:
     # noinspection PyUnresolvedReferences
     from itertools import imap as map, izip as zip, ifilter as filter
@@ -105,6 +104,7 @@ if PY3:
 
         on Python 3. (See PEP 3134).
         """
+
         # Is either arg an exception class (e.g. IndexError) rather than
         # instance (e.g. IndexError('my message here')? If so, pass the
         # name of the class undisturbed through to "raise ... from ...".

@@ -1,17 +1,16 @@
 import json
 import re
 import shlex
+from os import path
 from subprocess import Popen
 from time import sleep
 
-from os import path
-
-from .clients import ExecutionRPCClient, Request
+from .clients import ExecutionRPCClient
 from .dependencies import get_dependencies
-from .exceptions import ExternalExecutionTargetError
+from .exceptions import ExternalException
 from .outputs import ExecutionOutput
-from .._compat import with_metaclass, raise_from, is_sequence, isstring
-from ..utils import PRIMITIVE_TYPES as P_TYPES, identity, natural_format
+from .._compat import with_metaclass, raise_from, is_sequence, PRIMITIVE_TYPES as P_TYPES
+from ..utils import identity, natural_format
 
 
 class BaseExecutor(object):
@@ -63,7 +62,7 @@ class BaseExecutor(object):
         elif is_sequence(val):
             val = [cls._normalize_type(o) for o in val]
         else:
-            raise RuntimeError('Type of return value {} is invalid'.format(type(val)))
+            raise RuntimeError('type of return value {} is invalid'.format(type(val)))
         return val
 
 
@@ -72,9 +71,9 @@ class ExternalExecutorFabric(type):
 
     _DEFAULT_CONFIG = {
         'Java8': {
-            'suffix':          '.java',
-            'command_compile': 'javac -cp ".:lib/*" {compiling_path}',
-            'command_run':     'java -cp ".:lib/*" {running_path}',
+            'suffix': '.java',
+            # 'compile_args': '',
+            # 'run_args': '',
         },
     }
     # noinspection PyTypeChecker
@@ -155,19 +154,25 @@ class ExternalExecutorFabric(type):
                     break
         else:
             raise ValueError(natural_format(
-                'Cannot identify the way to execute {}. Supported external environment{s}: {item}',
+                'cannot identify the way to execute {}. Supported external environment{s}: {item}',
                 path, item=mcs.supported_environments()))
         return mcs.get(env)
 
 
-class ExternalExecutor(with_metaclass(ExternalExecutorFabric, BaseExecutor)):
-    command_run = None
+def get_external_dependencies():
+    ds = get_dependencies()
+    ds.update({T.__name__: T for T in (ExternalException,)})
+    return ds
 
+
+class ExternalExecutor(with_metaclass(ExternalExecutorFabric, BaseExecutor)):
     _SOCKET_ADDRESS = 'localhost', 0
 
-    client = ExecutionRPCClient(_SOCKET_ADDRESS, get_dependencies())
+    client = ExecutionRPCClient(_SOCKET_ADDRESS, get_external_dependencies())
 
     RETRY_TARGET = 1
+
+    running_options = None
 
     def __init__(self, target, target_name=None):
         """
@@ -184,8 +189,6 @@ class ExternalExecutor(with_metaclass(ExternalExecutorFabric, BaseExecutor)):
         self.count_executions = 0
         self.curr_target_id = None
         self.proc = None
-        self.prepared = False
-        self.running_path = None
 
     def __del__(self):
         self.close()
@@ -196,11 +199,10 @@ class ExternalExecutor(with_metaclass(ExternalExecutorFabric, BaseExecutor)):
         addr = self.client.run()
 
         # Start target
-        self.curr_target_id = self.get_target_id()
-        if not self.prepared:
-            self.prepare_external(addr)
-            self.prepared = True
-        self.run_external()
+        if self.curr_target_id is None:
+            self.curr_target_id = self.prepare_external_target(addr)
+
+        self.run_external_target()
 
     def close(self):
         # Terminate target
@@ -214,58 +216,49 @@ class ExternalExecutor(with_metaclass(ExternalExecutorFabric, BaseExecutor)):
         # Client keeps running until program exits
 
     def execute_operations(self, operations):
-        request = Request(self.client.METHOD_EXECUTE, operations.to_params())
+        request_params = operations.to_params()
 
         self.count_executions += 1
 
         # Retry execution on failure
-        resp = None
+        # TODO move retry to client?
         for i in range(max(self.RETRY_TARGET, 1)):
             try:
                 self.run()
-                resp = self.client.request(self.curr_target_id, request)
-            except IOError as e:
+                output = self.client.request(self.curr_target_id, self.client.METHOD_EXECUTE,
+                                             request_params)
+            except OSError as e:
                 if i == self.RETRY_TARGET - 1:
-                    import traceback
-                    traceback.print_exc()
-                    raise_from(IOError('Failed to communicate with target properly'), e)
+                    raise_from(IOError('failed to communicate with target properly'), e)
             else:
-                break
+                assert len(operations) == len(output)
+                return (self.finalize_operation(*t) for t in zip(operations, output))
 
-        if resp.error:
-            self.raise_external_exception(resp.error)
+    def prepare_external_target(self, socket_address):
+        """Called once to prepare external resources.
 
-        assert len(operations) == len(resp.result)
-        return (self.finalize_operation(*t) for t in zip(operations, resp.result))
+        :param (str, id) socket_address:
+        :return any: identification of external target for client
+        """
+        return self.new_target_id()
 
-    def prepare_external(self, socket_address):
-        """Called once to prepare external resources. """
-        raise NotImplementedError
-
-    def run_external(self):
+    def run_external_target(self):
         """Non-blocking method to start a process running the target. """
         # Check whether process is still up
         if self.proc is not None:
             if self.proc.poll() is None:
-                return  # assume process is running
-        # Start a new process
+                # Assume process is running in this case
+                # TODO any better idea?
+                return
+
+                # Start a new process
         self.proc = self.start_process(self.get_run_command())
 
     def get_run_command(self):
-        return self.command_run.format(running_path=self.running_path)
+        raise NotImplementedError
 
-    def get_target_id(self):
-        ret = '{}_target_{}_{}'.format(self.ENVIRONMENT, self.target_name, self.count_executions)
-        return ret
-
-    def raise_external_exception(self, e):
-        """
-        :param dict e: {'name': ..., 'message': ..., 'stack_trace': ...}
-        """
-        msg = 'Exception raised while executing external target'
-        Ex = type(e['name'], (Exception,), {})
-        resp_msg = '{}\n{}'.format(e['message'], e['stack_trace'])
-        raise_from(ExternalExecutionTargetError(msg), Ex(resp_msg))
+    def new_target_id(self):
+        return 'Target:{}:{}:{}'.format(self.ENVIRONMENT, self.target_name, self.count_executions)
 
     @staticmethod
     def start_process(cmd):
@@ -285,7 +278,7 @@ class ExternalExecutor(with_metaclass(ExternalExecutorFabric, BaseExecutor)):
         if timeout is None:
             proc.wait()
         else:
-            for _ in range(timeout // 0.1):
+            for _ in range(int(timeout / 0.1)):
                 if proc.poll() is None:
                     sleep(0.1)
                 else:
@@ -296,22 +289,18 @@ class ExternalExecutor(with_metaclass(ExternalExecutorFabric, BaseExecutor)):
 
 
 class CompiledExecutor(ExternalExecutor):
-    command_compile = None
-
     COMPILE_TIMEOUT = 10
 
-    def __init__(self, target, target_name=None):
-        super(CompiledExecutor, self).__init__(target, target_name)
+    compiler_options = None
 
-        self.compiling_path = None
-
-    def prepare_external(self, socket_address):
+    def prepare_external_target(self, socket_address):
         proc = self.start_process(self.get_compile_command())
         ret_code = self.wait_terminate(proc, self.COMPILE_TIMEOUT)
         if ret_code is None:
-            raise RuntimeError('Compilation timed out')
+            raise RuntimeError('compilation timed out')
         elif ret_code != 0:
-            raise RuntimeError('Compilation failed')
+            raise RuntimeError('compilation failed')
+        return super(CompiledExecutor, self).prepare_external_target(socket_address)
 
     def get_compile_command(self):
-        return self.command_compile.format(compiling_path=self.compiling_path)
+        raise NotImplementedError
