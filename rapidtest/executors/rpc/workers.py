@@ -3,8 +3,8 @@ from socket import socket
 from threading import Lock, Thread, Condition
 
 from .exceptions import TimeoutError
-from .utils import Request, Response
-from ..._compat import queue
+from .utils import Request, Response, queuedict
+from ..._compat import queue, raise_from
 from ...utils import Dictable, natural_join
 
 
@@ -144,10 +144,7 @@ class Acceptor(ThreadedSocketWorker):
 
         super(Acceptor, self).__init__(client, s)
 
-        self.workers_lock = Lock()
-        self.workers = {}
-        self.worker_created = Condition(self.workers_lock)
-        self.closed_workers = []
+        self.workers = queuedict()
 
     def handle(self):
         while True:
@@ -162,16 +159,9 @@ class Acceptor(ThreadedSocketWorker):
                 raise RuntimeError('Initial request of a connection was invalid')
 
             target = request.params[0]
-            r = Receiver(self, target, conn)
-            s = Sender(self, target, conn)
-            print('Python created communicators: {}, {}'.format(r, s))
-            with self.workers_lock:
-                self.workers[target] = r, s
-                self.worker_created.notify_all()
-
-        print('Workers to remove: {}'.format(self.workers))
-        for target in self.workers:
-            self.remove_workers(target)
+            workers = Receiver(self, target, conn), Sender(self, target, conn)
+            print('Python created communicators: {}, {}'.format(*workers))
+            self.workers[target] = workers
 
     def close(self):
         # Accepting socket is a little hard to close
@@ -184,6 +174,10 @@ class Acceptor(ThreadedSocketWorker):
         # else:
         #     closer.close()
 
+        print('Workers remaining: {}'.format(self.workers))
+        for target in self.workers:
+            self.remove_workers(target)
+
         super(Acceptor, self).close()
 
     # noinspection PyUnboundLocalVariable
@@ -193,28 +187,19 @@ class Acceptor(ThreadedSocketWorker):
         :param int timeout:
         :return Tuple[Communicator, Communicator]: (receiver, sender)
         """
-        with self.workers_lock:
-            if timeout is None:
-                while target not in self.workers:
-                    self.worker_created.wait()
-            else:
-                self.worker_created.wait(timeout)
-                if target not in self.workers:
-                    raise TimeoutError('target did not connect in time')
-            workers = self.workers[target]
-        if workers is None:
-            raise RuntimeError('connection is already closed.')
-        return workers
+        try:
+            return self.workers.get(target, True, timeout)
+        except KeyError:
+            raise_from(TimeoutError('target did not connect in time or is already removed'), None)
 
     # noinspection PyUnboundLocalVariable
     def remove_workers(self, target):
-        """Remove workers to release memory. Server calls this method when no longer communications
+        """Remove workers to release memory. Client calls this method when no longer communications
             with target. """
-        with self.workers_lock:
-            if target not in self.workers:
-                raise RuntimeError('connection does not exist.')
-            r, s = self.workers[target]
-            self.workers[target] = None
+        try:
+            r, s = self.workers.pop(target, False)
+        except RuntimeError:
+            raise_from(RuntimeError('connection does not exist.'), None)
 
         r.close()
         s.close()

@@ -1,5 +1,5 @@
 from collections import defaultdict
-from threading import Condition
+from threading import Condition, Lock
 
 from ...utils import Dictable
 
@@ -25,65 +25,59 @@ class Response(Dictable):
 class queuedict(object):
     """queue.Queue-like dict implementation.
 
-    queuedict.get(timeout) amounts to Queue.get(True, timeout). If waiter timed out or key does
-    not exist, a KeyError is raised. Note that it is possible to trigger a KeyError if a key is
-    set but deleted before get.
-    queuedict[] amounts to Queue.get_nowait().
-
     queuedict[] = amounts to Queue.put_nowait().
 
-    queuedict.pop amounts to Queue.get_nowait() and then removing key. It waits until all
-    getting threads pass. If a key is popped multiple times before set again, a KeyError is
-    raised.
-    del queuedict[] raises a RuntimeError if there are waiters.
+    queuedict.get(key, block, timeout) amounts to Queue.get(block, timeout). If waiter timed out
+    or key does not exist, a KeyError is raised. Note that it is possible to trigger a KeyError
+    if a key is set but deleted before get.
 
-    All methods do not support the paradigm of using default value.
+    queuedict.pop(key, block) amounts to Queue.get(block) and then removing key. If a key is
+    popped multiple times before set again, a KeyError is raised. If block is True, it waits
+    until all getting threads pass. Otherwise it does not wait, and raises a RuntimeError if
+    there are waiters.
     """
 
-    def __init__(self, lock):
+    def __init__(self):
         self.d = dict()
-        self.mutex = lock
-        self.waiter_conditions = defaultdict(lambda: Condition(lock))
-        self.waiter_counts = defaultdict(int)
+        l = self.mutex = Lock()
+        self.waiters = defaultdict(lambda: [Condition(l), 0])
 
     def __setitem__(self, key, val):
         with self.mutex:
-            if key in self.waiter_conditions:
-                self.waiter_conditions[key].notify()
+            if key in self.waiters:
+                cond, _ = self.waiters[key]
+                cond.notify()
+
             self.d[key] = val
 
-    def __getitem__(self, key):
+    def get(self, key, block=True, timeout=None):
         with self.mutex:
+            if block:
+                if key not in self:
+                    cond, cnt = self.waiters[key]
+                    self.waiters[key][1] = cnt + 1
+                    cond.wait(timeout)
+                    cond.notify()
+                    self.waiters[key][1] -= 1
+
             return self.d[key]
 
-    def get(self, key, timeout=None):
+    def pop(self, key, block=True):  # TODO add timeout
         with self.mutex:
-            if key not in self:
-                self.waiter_counts[key] += 1
-                cond = self.waiter_conditions[key]
-                cond.wait(timeout)
-                cond.notify()
-                self.waiter_counts[key] -= 1
-            return self.d[key]
+            if block:
+                while key in self.waiters:
+                    cond, cnt = self.waiters[key]
+                    if cnt == 0:
+                        cond.notify_all()  # let all later getters and deleters face KeyError
+                        del self.waiters[key]
+                        break
+                    else:
+                        cond.wait()
+            else:
+                if key in self.waiters:
+                    raise RuntimeError('there are other threads trying to get')
 
-    def __delitem__(self, key):
-        with self.mutex:
-            if key in self.waiter_conditions:
-                raise RuntimeError('there are other threads trying to get')
-            del self.d[key]
-
-    def pop(self, key):
-        with self.mutex:
-            cond = self.waiter_conditions[key]
-            while key in self.waiter_counts:
-                count = self.waiter_counts[key]
-                if count == 0:
-                    cond.notify_all()  # let all later getters and deleters face KeyError
-                    break
-                else:
-                    cond.wait()
-            del self.d[key]
-            del self.waiter_conditions[key], self.waiter_counts[key]
+            return self.d.pop(key)
 
     def __repr__(self):
         with self.mutex:
@@ -92,3 +86,6 @@ class queuedict(object):
     def __str__(self):
         with self.mutex:
             return str(self.d)
+
+    def __iter__(self):
+        return iter(self.d)
