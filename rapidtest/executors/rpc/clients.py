@@ -1,10 +1,10 @@
 from json import JSONDecoder, JSONEncoder
 
-from .exceptions import ExternalException
-from .utils import Request
+from .exceptions import ExternalException, TimeoutError
+from .utils import Request, Response
 from .workers import Acceptor
 from ..dependencies import get_dependencies
-from ..._compat import queue, raise_from
+from ..._compat import raise_from
 
 
 class ExecutionTargetRPCClient(object):
@@ -47,6 +47,14 @@ class ExecutionTargetRPCClient(object):
             self.acceptor = None
             ator.raise_()
 
+    def connect(self, target, timeout=None):
+        """Wait until target is connected.
+
+        :param Any target:
+        :param int timeout: Wait for specified seconds before raising an exception
+        """
+        self.acceptor.get_workers(target, timeout)
+
     def request(self, target, method, params, receive_timeout=None):
         """Send request and wait for response.
 
@@ -56,9 +64,10 @@ class ExecutionTargetRPCClient(object):
         :return Response:
         :param int receive_timeout:
         """
-        request = Request(method, params, self.new_id())
+        request_id = self.new_id()
+        request = Request(method, params, request_id)
         self._send(target, request)
-        return self._receive(target, receive_timeout)
+        return self._wait_response(target, request_id, receive_timeout)
 
     def notify(self, target, method, params=None):
         """Send notification and return immediately.
@@ -70,14 +79,6 @@ class ExecutionTargetRPCClient(object):
         request = Request(method, params)
         self._send(target, request)
 
-    def connect(self, target, timeout=None):
-        """Wait until target is connected.
-
-        :param Any target:
-        :param int timeout: Wait for specified seconds before raising an exception
-        """
-        self.acceptor.get_workers(target, timeout)
-
     def disconnect(self, target):
         self.acceptor.remove_workers(target)
 
@@ -85,27 +86,29 @@ class ExecutionTargetRPCClient(object):
         _, s = self.acceptor.get_workers(target)
         s.send(request)
 
-    def _receive(self, target, timeout):
-        # TODO add id argument
+    def _wait_response(self, target, id, timeout):
+        """
+        :param Any id: None means notification
+        :return Any: result of a response or exception
+        """
         r, _ = self.acceptor.get_workers(target)
         try:
-            receiving = r.receive(timeout)
-        except queue.Empty:
+            call = r.receive(id, timeout)
+        except TimeoutError:
             # TODO send timeout to target so that I can tell IOError from TLE. Or is that important?
             print('Receiving from {} timed out'.format(target))
-            raise_from(RuntimeError('target did not respond in time'), None)
-        else:
-            # TODO should keep receivings separate if it is not a response to this request (same id)
-            # or a notification
-            if isinstance(receiving, Exception):
-                raise receiving
+            raise
+
+        assert call.id == id
+        if isinstance(call, Response):
+            if call.error:
+                msg = 'exception raised while executing external target'
+                ExcWrapper, exc = call.error.to_exception()
+                raise_from(ExcWrapper(msg), exc)
             else:
-                error = getattr(receiving, 'error', None)
-                if error:
-                    msg = 'exception raised while executing external target'
-                    ExcWrapper, exc = error.to_exception()
-                    raise_from(ExcWrapper(msg), exc)
-            return receiving
+                return call.result
+        else:
+            raise RuntimeError('target did not return a Response')
 
     @classmethod
     def _get_object_hook_handler(cls, dependencies):

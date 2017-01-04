@@ -1,25 +1,30 @@
 from collections import defaultdict
-from threading import Condition, Lock
+from threading import Lock, Condition
 
 from ...utils import Dictable
 
 
-class Request(Dictable):
+class Call(Dictable):
+    def __init__(self, id):
+        self.id = id
+
+
+class Request(Call):
     """Request in JSON-RPC"""
 
     def __init__(self, method=None, params=None, id=None):
+        super(Request, self).__init__(id)
         self.method = method
         self.params = params
-        self.id = id
 
 
-class Response(Dictable):
+class Response(Call):
     """Response in JSON-RPC"""
 
     def __init__(self, result=None, error=None, id=None):
+        super(Response, self).__init__(id)
         self.result = result
         self.error = error
-        self.id = id
 
 
 class queuedict(object):
@@ -27,56 +32,44 @@ class queuedict(object):
 
     queuedict[] = amounts to Queue.put_nowait().
 
-    queuedict.get(key, block, timeout) amounts to Queue.get(block, timeout). If waiter timed out
+    queuedict.pop(key, block, timeout) amounts to Queue.get(block, timeout). If waiter timed out
     or key does not exist, a KeyError is raised. Note that it is possible to trigger a KeyError
-    if a key is set but deleted before get.
+    if a key is set but popped before get.
 
-    queuedict.pop(key, block) amounts to Queue.get(block) and then removing key. If a key is
-    popped multiple times before set again, a KeyError is raised. If block is True, it waits
-    until all getting threads pass. Otherwise it does not wait, and raises a RuntimeError if
-    there are waiters.
+    queuedict.get(key, block, timeout) amounts to queuedict.pop without removal. It is not safe
+     to get and pop at the same time.
     """
 
     def __init__(self):
         self.d = dict()
         l = self.mutex = Lock()
-        self.waiters = defaultdict(lambda: [Condition(l), 0])
+        self.waiter_conditions = defaultdict(lambda: Condition(l))
 
     def __setitem__(self, key, val):
         with self.mutex:
-            if key in self.waiters:
-                cond, _ = self.waiters[key]
-                cond.notify()
+            if key in self.waiter_conditions:
+                self.waiter_conditions[key].notify()
 
             self.d[key] = val
 
     def get(self, key, block=True, timeout=None):
         with self.mutex:
             if block:
-                if key not in self:
-                    cond, cnt = self.waiters[key]
-                    self.waiters[key][1] = cnt + 1
+                if key not in self.d:
+                    cond = self.waiter_conditions[key]
                     cond.wait(timeout)
                     cond.notify()
-                    self.waiters[key][1] -= 1
 
             return self.d[key]
 
-    def pop(self, key, block=True):  # TODO add timeout
+    def pop(self, key, block=True, timeout=None):
         with self.mutex:
             if block:
-                while key in self.waiters:
-                    cond, cnt = self.waiters[key]
-                    if cnt == 0:
-                        cond.notify_all()  # let all later getters and deleters face KeyError
-                        del self.waiters[key]
-                        break
-                    else:
-                        cond.wait()
-            else:
-                if key in self.waiters:
-                    raise RuntimeError('there are other threads trying to get')
+                if key not in self.d:
+                    cond = self.waiter_conditions[key]
+                    cond.wait(timeout)
 
+            del self.waiter_conditions[key]
             return self.d.pop(key)
 
     def __repr__(self):
@@ -89,3 +82,6 @@ class queuedict(object):
 
     def __iter__(self):
         return iter(self.d)
+
+    def __contains__(self, key):
+        return key in self.d
