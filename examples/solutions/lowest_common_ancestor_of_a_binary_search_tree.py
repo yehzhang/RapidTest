@@ -33,6 +33,5 @@ class Solution(object):
             if r_node.val == q.val:
                 break
             r_node = r_node.left if q.val < r_node.val else r_node.right
-        # print(node, r_node, mark)
 
         return r_node and mark
