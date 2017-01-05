@@ -4,7 +4,7 @@ from shutil import rmtree, copytree
 from string import Template
 from tempfile import mkdtemp
 
-from ..common_executors import CompiledExecutor
+from ..externel_executors import CompiledExecutor
 from ..rpc.exceptions import MSG_CANNOT_GUESS_METHOD
 
 
