@@ -25,13 +25,15 @@ public class Executor implements Closeable {
                 switch (operations.method) {
                     case METHOD_EXECUTE:
                         Object output = operations.execute(target);
+                        // Return method names
+                        output = new Object[]{operations.listExecutedMethods(), output};
                         server.respond(output, operations);
                         break;
                     default:
                         return true;
                 }
             } catch (InvocationTargetException e) {
-                server.respond(e.getCause(), operations);
+                server.respond(e, operations);
             } catch (Exception e) {
                 server.respond(e, operations);
                 return false;
