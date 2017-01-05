@@ -22,4 +22,14 @@ public class Utils {
         String[] strs = stream.map(mapper).toArray(String[]::new);
         return String.join(sep, strs);
     }
+
+    public static class Tuple<A, B> {
+        public Tuple(A a, B b) {
+            this.a = a;
+            this.b = b;
+        }
+
+        public final A a;
+        public final B b;
+    }
 }

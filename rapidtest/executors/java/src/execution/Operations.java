@@ -5,10 +5,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class Operations extends Request {
-    public Operations(Request initOperation, List<Request> operations, boolean inPlace, String
+    public Operations(Object[] initParams, List<Request> operations, boolean inPlace, String
             requestMethod, String requestId) {
-        super(requestMethod, new Object[0], requestId);
-        this.initOperation = initOperation;
+        super(requestMethod, null, requestId);
+        this.initParams = initParams;
         this.operations = operations;
         this.inPlace = inPlace;
     }
@@ -16,27 +16,20 @@ public class Operations extends Request {
     /**
      * @return Output of executing target
      */
-    <T> Object execute(Class<T> target) throws InvocationTargetException,
+    Object execute(Class<?> target, Reflection reflection) throws InvocationTargetException,
             NoSuchMethodException, InstantiationException, IllegalAccessException {
-        T instance = newInstance(target);
-        return invoke(instance);
+        return invoke(reflection.newInstance(target, initParams), reflection);
     }
 
     @Override
-    <T> Object invoke(T instance) throws NoSuchMethodException,
+    Object invoke(Object instance, Reflection reflection) throws NoSuchMethodException,
             InvocationTargetException, IllegalAccessException {
         List<Object> output = new ArrayList<>();
         for (Request op : operations) {
-            Object ret = op.invoke(instance);
+            Object ret = op.invoke(instance, reflection);
             output.add(inPlace ? op.params : ret);
         }
         return output;
-    }
-
-    @Override
-    <T> T newInstance(Class<T> target) throws NoSuchMethodException, IllegalAccessException,
-            InvocationTargetException, InstantiationException {
-        return initOperation.newInstance(target);
     }
 
     @Override
@@ -48,7 +41,7 @@ public class Operations extends Request {
         return operations.stream().map(op -> op.method).toArray(String[]::new);
     }
 
-    final Request initOperation;
+    final Object[] initParams;
     final List<Request> operations;
     final boolean inPlace;
 }

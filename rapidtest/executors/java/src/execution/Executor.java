@@ -9,22 +9,27 @@ import static execution.StaticConfig.METHOD_EXECUTE;
 
 public class Executor implements Closeable {
     public Executor() throws IOException {
-        server = new ExecutionRPCServer();
+        reflection = new Reflection();
+        json = new Json(reflection);
+        server = new ExecutionRPCServer(json);
     }
 
     public <T> boolean run(Class<T> target) throws IOException {
+        json.setTarget(target);
+
         server.sayHello();
 
         while (true) {
-            Operations operations = server.receive(Operations.class);
-            if (operations == null) {
-                return true;
-            }
+            Operations operations = null;
 
             try {
+                operations = server.receive(Operations.class);
+                if (operations == null) {
+                    return true;
+                }
                 switch (operations.method) {
                     case METHOD_EXECUTE:
-                        Object output = operations.execute(target);
+                        Object output = operations.execute(target, reflection);
                         // Return method names
                         output = new Object[]{operations.listExecutedMethods(), output};
                         server.respond(output, operations);
@@ -32,9 +37,13 @@ public class Executor implements Closeable {
                     default:
                         return true;
                 }
-            } catch (InvocationTargetException e) {
+            } catch (InvocationTargetException | InstantiationException | NoSuchMethodException |
+                    IllegalAccessException e) {
                 server.respond(e, operations);
             } catch (Exception e) {
+                if (operations == null) {
+                    throw e;
+                }
                 server.respond(e, operations);
                 return false;
             }
@@ -47,4 +56,6 @@ public class Executor implements Closeable {
     }
 
     ExecutionRPCServer server;
+    Reflection reflection;
+    Json json;
 }

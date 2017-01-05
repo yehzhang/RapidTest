@@ -14,8 +14,8 @@ import static execution.StaticConfig.METHOD_HELLO;
 import static execution.StaticConfig.TARGET_ID;
 
 public class ExecutionRPCServer implements Closeable {
-    public ExecutionRPCServer() throws IOException {
-        json = new Json();
+    public ExecutionRPCServer(Json json) throws IOException {
+        this.json = json;
 
         socket = new Socket(HOST_ADDR, HOST_PORT);
         try {

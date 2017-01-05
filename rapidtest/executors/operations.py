@@ -56,8 +56,9 @@ class Operations(object):
         :return List[Dict]): params
         """
         params = [{
-            'in_place': bool(self.in_place_selector)
-        }, dict(Request(params=self.init_args))]
+            'in_place': bool(self.in_place_selector),
+            'constructor': self.init_args
+        }]
         params.extend(dict(o.to_request()) for o in self.operations)
         return params
 

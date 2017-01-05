@@ -1,8 +1,9 @@
 from rapidtest.utils import Dictable
 
 MSG_CANNOT_GUESS_METHOD = '''\
-cannot find the target method. You may use operations if there are multiple methods to be called, \
-or make sure that there is only one public method in the target class.\
+cannot find the target method or constructor. You may use operations if there are multiple \
+methods to be called, or make sure that there is at most one public method or constructor in the \
+target class.\
 '''
 
 

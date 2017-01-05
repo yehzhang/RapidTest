@@ -8,7 +8,7 @@ public class Request {
     Request(String method, Object[] params, String id) {
         countRequests++;
         this.method = method;
-        this.params = params;
+        this.params = (params == null) ? new Object[0] : params;
         this.id = id;
     }
 
@@ -17,19 +17,11 @@ public class Request {
     }
 
     @SuppressWarnings("unchecked")
-    <T> Object invoke(T o) throws NoSuchMethodException, InvocationTargetException,
-            IllegalAccessException {
+    <T> Object invoke(T o, Reflection reflection) throws NoSuchMethodException,
+            InvocationTargetException, IllegalAccessException {
         Method meth = reflection.getMethod(o, method, params);
         method = meth.getName();
         return reflection.invoke(o, meth, params);
-    }
-
-    /**
-     * Instantiate clazz with init_args by the constructor of corresponding signature
-     */
-    <T> T newInstance(Class<T> clazz) throws NoSuchMethodException, IllegalAccessException,
-            InvocationTargetException, InstantiationException {
-        return reflection.newInstance(clazz, params);
     }
 
     @Override
@@ -41,8 +33,6 @@ public class Request {
     String method;
     Object[] params;
     String id;
-
-    static Reflection reflection = new Reflection();
 
     public static final String REQUEST_ID_PREFIX = "Java_target_request_";
 
