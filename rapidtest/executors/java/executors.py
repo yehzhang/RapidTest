@@ -20,8 +20,8 @@ class JavaExecutor(CompiledExecutor):
     # Must in PACKAGE
     TEMPLATE_TARGETS = 'StaticConfig.java',
 
-    COMMAND_COMPILE = 'javac -d "{out_path}" -cp "{src_path}:{lib_path}/*" {src_files} {args}'
-    COMMAND_RUN = 'java -cp "{out_path}:{lib_path}/*" {entry_point} {args}'
+    COMMAND_COMPILE = '/usr/bin/javac -d "{out_path}" -cp "{src_path}:{lib_path}/*" {src_files} {args}'
+    COMMAND_RUN = '/usr/bin/java -cp "{out_path}:{lib_path}/*" {entry_point} {args}'
 
     def __init__(self, target, target_name=None):
         super(JavaExecutor, self).__init__(target, target_name)
