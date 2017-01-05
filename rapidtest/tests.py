@@ -129,7 +129,11 @@ class Test(object):
         if not isinstance(repeat, int):
             raise TypeError('repeat is not an integer')
         if repeat > 0:
-            self._add_generator(generator(i) for i in range(repeat))
+            cases_generator = (self._initialize(generator(i)) for i in range(repeat))
+            sess = Session(cases_generator, generator.__name__)
+
+            self.separate()
+            self._pending_sessions.append(sess)
 
     def add_case(self, case):
         """Add a case to be run when run() is called next time."""
@@ -137,8 +141,8 @@ class Test(object):
 
         if self._current_session is None:
             self._current_session = []
-            # noinspection PyTypeChecker
-            self._pending_sessions.append(iter(self._current_session))
+            sess = Session(self._current_session)
+            self._pending_sessions.append(sess)
         self._current_session.append(case)
 
     def add_cases(self, cases):
@@ -148,13 +152,6 @@ class Test(object):
         for case in cases:
             self.add_case(case)
 
-    def _add_generator(self, gen):
-        """Add an iterable of cases which are lazy-evaluated."""
-        self.separate()
-
-        gen_cases = (self._initialize(case) for case in gen)
-        self._pending_sessions.append(iter(gen_cases))
-
     def separate(self):
         """Separate a set of individual cases from another one."""
         self._current_session = None
@@ -162,7 +159,7 @@ class Test(object):
     def _initialize(self, case):
         """Called to _initialize a case."""
         if not isinstance(case, Case):
-            raise TypeError('case is not of type Case')
+            raise TypeError('expected an instance of Case, got {}'.format(repr(case)))
         case._initialize(self.bound_params)
         return case
 
@@ -179,21 +176,30 @@ class Test(object):
             session = self._pending_sessions.popleft()
             last_unborn_cases = self.unborn_cases
 
+            if session.name:
+                print('Running <{}>: '.format(session.name), end='')
+                has_printed = True
+            else:
+                has_printed = False
+
             try:
-                self._run_cases(session)
-            except:
+                self._run_cases(iter(session), has_printed)
+            except BaseException as e:
+                if isinstance(e, WrongAnswer):
+                    print(e.args[0])
+                    break
+
                 # If case generator raises an exception, it is stopped. No need to recycle it
                 if self.unborn_cases == last_unborn_cases:
-                    # iterator did not raise an exception. It is the case.run()
+                    # Otherwise It is the case.run() that raised an exception. Recycle it.
                     self._pending_sessions.appendleft(session)
+
                 raise
 
-    def _run_cases(self, cases):
+    def _run_cases(self, cases, has_printed=False):
         """
-        :param iterator cases:
+        :param Iterator[Case] cases:
         """
-        has_printed = False
-
         try:
             while True:
                 try:
@@ -220,7 +226,7 @@ class Test(object):
                     (self.passed_cases if success else self.failed_cases).append(case)
 
                 if not success:
-                    raise ValueError(str(case))
+                    raise WrongAnswer(str(case))
         finally:
             if has_printed:
                 print()
@@ -243,19 +249,37 @@ class Test(object):
         """
         if self.unborn_cases:
             return self.EXIT_GEN_ERR, None
-        try:
-            cnt_pending_cases = 0
-            for i in range(len(self._pending_sessions)):
-                s = list(self._pending_sessions.popleft())
-                cnt_pending_cases += len(s)
-                self._pending_sessions.append(iter(s))
-        except Exception as e:
-            return self.EXIT_GEN_ERR, 'Exception raised when counting pending cases: {}'.format(e)
-        if cnt_pending_cases:
-            return self.EXIT_PENDING, 'Leaving {} pending cases'.format(cnt_pending_cases)
+
+        # try:
+        #     cnt_pending_cases = 0
+        #     for i in range(len(self._pending_sessions)):
+        #         s = list(self._pending_sessions.popleft())
+        #         cnt_pending_cases += len(s)
+        #         self._pending_sessions.append(iter(s))
+        # except Exception as e:
+        #     return self.EXIT_GEN_ERR, 'Exception raised when counting pending cases: {}'.format(e)
+        # if cnt_pending_cases:
+        #     return self.EXIT_PENDING, 'Leaving {} pending cases'.format(cnt_pending_cases)
+
         if self.failed_cases:
             return self.EXIT_FAIL, None
         if self.passed_cases:
             return self.EXIT_PASS, 'Passed all {} test cases'.format(len(self.passed_cases))
         return self.EXIT_EMPTY, 'No case was tested'
         # return self.EXIT_UNKNOWN, None
+
+class Session(object):
+    def __init__(self, case_generator, name=None):
+        """
+        :param Iterable[Case] case_generator:
+        :param str name:
+        """
+        self.name = name
+        self.cases = iter(case_generator)
+
+    def __iter__(self):
+        return self.cases
+
+
+class WrongAnswer(Exception):
+    pass
