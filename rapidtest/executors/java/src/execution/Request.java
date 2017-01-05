@@ -2,63 +2,26 @@ package execution;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.function.Predicate;
-import java.util.function.Supplier;
-
-import static execution.StaticConfig.CANNOT_GUESS;
 
 
 public class Request {
-    protected Request() {
+    Request(String method, Object[] params, String id) {
         countRequests++;
-    }
-
-    public Request(String method, Object[] params, String id) {
-        this();
         this.method = method;
         this.params = params;
         this.id = id;
     }
 
-    public Request(String method, Object[] params, boolean notification) {
+    Request(String method, Object[] params, boolean notification) {
         this(method, params, notification ? null : REQUEST_ID_PREFIX + countRequests);
     }
 
     @SuppressWarnings("unchecked")
-    <T> Object invoke(Class<T> clazz, T o) throws NoSuchMethodException,
-            InvocationTargetException, IllegalAccessException {
-        Method target = null;
-        Method[] methods = null;
-        if (method == null) {
-            methods = putIfAbsent(defaultMethods, clazz,
-                    () -> getDeclaredMethods(clazz, meth -> {
-                        int mod = meth.getModifiers();
-                        return Modifier.isPublic(mod) && !meth.getName().equals("main");
-                    }));
-        }
-        else {
-            try {
-                target = clazz.getMethod(method, getParamTypes());
-            } catch (NoSuchMethodException e) {
-//                Map<String, Method> methods = putIfAbsent(classMethods, clazz, () -> {
-//                    return new HashMap<>();
-//                });
-
-            }
-        }
-
-        if (target == null) {
-
-            if (methods.length != 1) {
-                throw new IllegalArgumentException(CANNOT_GUESS);
-            }
-            target = methods[0];
-        }
-        return target.invoke(o, params);
+    <T> Object invoke(T o) throws NoSuchMethodException, InvocationTargetException,
+            IllegalAccessException {
+        Method meth = reflection.getMethod(o, method, params);
+        method = meth.getName();
+        return reflection.invoke(o, meth, params);
     }
 
     /**
@@ -66,32 +29,20 @@ public class Request {
      */
     <T> T newInstance(Class<T> clazz) throws NoSuchMethodException, IllegalAccessException,
             InvocationTargetException, InstantiationException {
-        return clazz.getConstructor(getParamTypes()).newInstance(params);
+        return reflection.newInstance(clazz, params);
     }
 
-    Class[] getParamTypes() {
-        return Arrays.stream(params).map(Object::getClass).toArray(Class[]::new);
-    }
-
-    <T> Method[] getDeclaredMethods(Class<T> clazz, Predicate<Method> shouldGet) {
-        return Arrays.stream(clazz.getDeclaredMethods()).filter(shouldGet).toArray(Method[]::new);
-    }
-
-    <K, V> V putIfAbsent(Map<K, V> mapping, K key, Supplier<V> supplier) {
-        if (mapping.containsKey(key)) {
-            return mapping.get(key);
-        }
-        V value = supplier.get();
-        mapping.put(key, value);
-        return value;
+    @Override
+    public String toString() {
+        String paramStr = Utils.join(", ", params);
+        return String.format("%s(%s)", method, paramStr);
     }
 
     String method;
     Object[] params;
     String id;
 
-    private static Map<Class, Method[]> defaultMethods = new HashMap<>();
-    private static Map<Class, Map<String, Method>> classMethods = new HashMap<>();
+    static Reflection reflection = new Reflection();
 
     public static final String REQUEST_ID_PREFIX = "Java_target_request_";
 

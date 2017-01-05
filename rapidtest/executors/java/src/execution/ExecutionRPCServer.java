@@ -1,8 +1,5 @@
 package execution;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-
 import java.io.BufferedReader;
 import java.io.Closeable;
 import java.io.IOException;
@@ -18,9 +15,7 @@ import static execution.StaticConfig.TARGET_ID;
 
 public class ExecutionRPCServer implements Closeable {
     public ExecutionRPCServer() throws IOException {
-        GsonBuilder builder = new GsonBuilder();
-        gson = builder.registerTypeAdapter(Operations.class, new Operations.Deserializer())
-                .create();
+        json = new Json();
 
         socket = new Socket(HOST_ADDR, HOST_PORT);
         try {
@@ -38,7 +33,7 @@ public class ExecutionRPCServer implements Closeable {
     }
 
     public void respond(Exception exc, Request request) {
-        send(new Response(exc, request));
+        send(Response.fromException(exc, request));
     }
 
     public void respond(Object result, Request request) {
@@ -70,16 +65,14 @@ public class ExecutionRPCServer implements Closeable {
         }
 
         if (dataLength == 0) {
-            System.out.println("Java received empty");
             return null;
         }
         String data = buffer.toString();
-        System.out.println("Java received data: " + data);
-        return gson.fromJson(data, clazz);
+        return json.load(data, clazz);
     }
 
     protected void send(Object o) {
-        String data = gson.toJson(o);
+        String data = json.dump(o);
         if (data.isEmpty()) {
             return;
         }
@@ -90,7 +83,6 @@ public class ExecutionRPCServer implements Closeable {
 
         out.print(data);
         out.flush();
-        System.out.println("Java sent data: " + data);
     }
 
     @Override
@@ -101,5 +93,5 @@ public class ExecutionRPCServer implements Closeable {
     private Socket socket;
     private PrintWriter out;
     private Reader in;
-    private Gson gson;
+    private Json json;
 }
