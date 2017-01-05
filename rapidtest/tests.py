@@ -86,9 +86,11 @@ class Test(object):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         Case.current_test = None
-        self.run()
-        self.close()
-        Case.current_test, = self._context_stack[-1:] or None,
+        try:
+            self.run()
+        finally:
+            self.close()
+            Case.current_test, = self._context_stack[-1:] or None,
 
     def __call__(self, *args, **kwargs):
         """Call self.add_generator() on behalf of user.

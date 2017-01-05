@@ -66,7 +66,8 @@ class ClassExecutor(NativeExecutor):
         self.target_instance = self.target(*operations.init_args)
 
         # Extract methods to call
-        names, funcs = map(list, zip(*map(self.get_method, operations)))
+        method_pairs = (self.get_method(op.name) for op in operations)
+        names, funcs = map(list, zip(*method_pairs))
         operations.update_operation_names(names)
         return funcs
 

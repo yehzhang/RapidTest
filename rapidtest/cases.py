@@ -31,7 +31,6 @@ class Case(object):
     :param Callable|Target|BaseExecutor target: a function or class to be tested. If it is a class
         and `operation` is False, the only public method will be called, if any.
         Alternatively target can be a value returned by make_target().
-        # TODO support other languages
 
     :param Callable|Iterable[Callable] post_proc: a post-processing function that takes a returned
         value and processes it, or an sequence of such functions to be applied from left to right.

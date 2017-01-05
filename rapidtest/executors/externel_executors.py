@@ -229,6 +229,7 @@ class ExternalExecutor(with_metaclass(ExternalExecutorFabric, BaseExecutor)):
             proc.kill()
 
         t = Timer(timeout, _t)
+        t.name = "Waiter-{}".format(proc)
         t.start()
         retcode = proc.wait()
         t.cancel()
