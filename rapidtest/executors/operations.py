@@ -60,3 +60,11 @@ class Operations(object):
         }, dict(Request(params=self.init_args))]
         params.extend(dict(o.to_request()) for o in self.operations)
         return params
+
+    def update_operation_names(self, names):
+        """
+        :param List[str] names:
+        """
+        assert len(names) == len(self.operations)
+        for name, op in zip(names, self.operations):
+            op.name = name

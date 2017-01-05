@@ -63,14 +63,11 @@ class ClassExecutor(NativeExecutor):
         self.default_method = None
 
     def get_functions(self, operations):
-        # Extract methods to call
-        funcs = []
-
         self.target_instance = self.target(*operations.init_args)
-        for op in operations:
-            op.name, func = self.get_method(op.name)
-            funcs.append(func)
 
+        # Extract methods to call
+        names, funcs = map(list, zip(*map(self.get_method, operations)))
+        operations.update_operation_names(names)
         return funcs
 
     def get_method(self, name=None):
