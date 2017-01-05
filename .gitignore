@@ -98,3 +98,5 @@ do_tests.py
 
 *.class
 rapidtest/executors/*/src/out
+
+examples/solutions/Solution.*
