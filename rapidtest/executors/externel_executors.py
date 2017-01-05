@@ -151,7 +151,8 @@ class ExternalExecutor(with_metaclass(ExternalExecutorFabric, BaseExecutor)):
         # Terminate target
         if self.proc is not None:
             if self.proc.poll() is None:
-                self.client.notify(self.curr_target_id, self.client.METHOD_TERMINATE)
+                if not self.client.closed():
+                    self.client.notify(self.curr_target_id, self.client.METHOD_TERMINATE)
                 self.wait_terminate(self.proc, 1)
             self.proc = None
 

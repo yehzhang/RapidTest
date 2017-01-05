@@ -40,12 +40,15 @@ class ExecutionTargetRPCClient(object):
         return self.addr
 
     def close(self):
-        if self.acceptor is not None:
+        if not self.closed():
             ator = self.acceptor
             ator.close()
             ator.join()
             self.acceptor = None
             ator.raise_()
+
+    def closed(self):
+        return self.acceptor is None
 
     def connect(self, target, timeout=None):
         """Wait until target is connected.
