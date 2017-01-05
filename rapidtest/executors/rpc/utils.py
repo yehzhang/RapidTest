@@ -54,23 +54,25 @@ class queuedict(object):
 
     def get(self, key, block=True, timeout=None):
         with self.mutex:
-            if block:
-                if key not in self.d:
-                    cond = self.waiter_conditions[key]
-                    cond.wait(timeout)
-                    cond.notify()
+            cond = self._wait_data(key, block, timeout)
+            if cond:
+                cond.notify()
 
             return self.d[key]
 
     def pop(self, key, block=True, timeout=None):
         with self.mutex:
-            if block:
-                if key not in self.d:
-                    cond = self.waiter_conditions[key]
-                    cond.wait(timeout)
+            self._wait_data(key, block, timeout)
 
             del self.waiter_conditions[key]
             return self.d.pop(key)
+
+    def _wait_data(self, key, block, timeout):
+        if block:
+            if key not in self.d:
+                cond = self.waiter_conditions[key]
+                cond.wait(timeout)
+                return cond
 
     def __repr__(self):
         with self.mutex:
@@ -80,8 +82,21 @@ class queuedict(object):
         with self.mutex:
             return str(self.d)
 
-    def __iter__(self):
-        return iter(self.d)
-
     def __contains__(self, key):
-        return key in self.d
+        with self.mutex:
+            return key in self.d
+
+    def __iter__(self):
+        return iter(self.keys())
+
+    def values(self):
+        with self.mutex:
+            return list(self.d.values())
+
+    def keys(self):
+        with self.mutex:
+            return list(self.d.keys())
+
+    def items(self):
+        with self.mutex:
+            return list(self.d.items())

@@ -36,7 +36,7 @@ class ExecutionTargetRPCClient(object):
         """
         if self.acceptor is None:
             self.acceptor = Acceptor(self)
-            self.addr = self.acceptor.get_address()
+            self.addr = self.acceptor.get_socket_address()
         return self.addr
 
     def close(self):

@@ -1,5 +1,4 @@
-import traceback
-from select import select
+import select
 from socket import socket
 from threading import Thread
 
@@ -16,7 +15,6 @@ class ThreadedSocketWorker(object):
         ThreadedSocketWorker._count_workers += 1
         self.client = client
         self.socket = socket
-        self.closed = False
 
         self._read_buf = ''
 
@@ -28,9 +26,7 @@ class ThreadedSocketWorker(object):
         self.close()
 
     def close(self):
-        print('{} closed.'.format(type(self).__name__))
         self.socket.close()
-        self.closed = True
 
     def join(self, timeout=None):
         self.thread.join(timeout)
@@ -42,27 +38,24 @@ class ThreadedSocketWorker(object):
             raise e
 
     def _start_thread(self):
-        def _auto_close():
-            self._working = True
-            try:
-                self.handle()
-            except OSError:
-                print(
-                    'Worker {} ends with OSError ignored: {}'.format(self, traceback.format_exc()))
-                pass
-            except BaseException as e:
-                # Store exception raised in child thread
-                print(
-                    'Worker {} ends with exception: {}'.format(self, traceback.format_exc()))
-                self.exception = e
-            finally:
-                self._working = False
-                self.close()
-
-        t = Thread(target=_auto_close, name=str(self))
+        t = Thread(target=self._handle, name=str(self))
         t.daemon = True
         t.start()
         return t
+
+    def _handle(self):
+        self._working = True
+        try:
+            self.handle()
+        except (OSError, IOError):
+            # Ignore OSError which is most likely caused by closing socket
+            pass
+        except BaseException as e:
+            # Store exception raised in child thread
+            self.exception = e
+        finally:
+            self._working = False
+            self.close()
 
     def __str__(self):
         return '{}-{}'.format(type(self).__name__, self.id)
@@ -70,7 +63,7 @@ class ThreadedSocketWorker(object):
     def handle(self):
         raise NotImplementedError
 
-    def get_address(self):
+    def get_socket_address(self):
         return self.socket.getsockname()
 
     def _ensure_working(self):
@@ -98,16 +91,14 @@ class ThreadedSocketWorker(object):
                 # Read everything in this call
                 break
 
-            d = None
             try:
-                r, _, _ = select([s], [], [])
-            except OSError:
-                import traceback
-                traceback.print_exc()
-                pass
+                r, _, _ = select.select([s], [], [])
+            except select.error:
+                raise OSError('socket closed')
+            if r:
+                d = s.recv(4096).decode()
             else:
-                if r:
-                    d = s.recv(4096).decode()
+                d = None
             if not d:
                 # Socket is probably closed before data is fully transmitted.
                 # Discard everything as if nothing was received.
@@ -121,7 +112,6 @@ class ThreadedSocketWorker(object):
         assert isinstance(length, int)
         if length == 0:
             return None
-        print('Python received {} data: {}'.format(length, repr(buf[:length])))
         obj = self.client.decoder.decode(buf[:length])
         if isinstance(obj, dict):
             for T in (Response, Request):
@@ -146,7 +136,6 @@ class Acceptor(ThreadedSocketWorker):
         while True:
             # Accept
             conn, _ = self.socket.accept()
-            print('Python accept from: {}:{}'.format(*_))
             call = self._read(conn)
             if call is None:
                 break
@@ -156,21 +145,19 @@ class Acceptor(ThreadedSocketWorker):
 
             target = call.params[0]
             workers = Receiver(self, target, conn), Sender(self, target, conn)
-            print('Python created communicators: {}, {}'.format(*workers))
             self.workers[target] = workers
 
     def close(self):
-        # Accepting socket is a little hard to close
-        # # TODO any better idea?
-        # closer = socket()
-        # try:
-        #     closer.connect(self.get_address())
-        # except OSError:
-        #     pass
-        # else:
-        #     closer.close()
+        # Accepting socket is a little hard to close in Python2
+        # TODO any better idea?
+        closer = socket()
+        try:
+            closer.connect(self.get_socket_address())
+        except (OSError, IOError):
+            pass
+        else:
+            closer.close()
 
-        print('Workers remaining: {}'.format(self.workers))
         for target in self.workers:
             self.remove_workers(target)
 
@@ -226,10 +213,6 @@ class Sender(Communicator):
 
         super(Sender, self).__init__(acceptor, target, socket)
 
-    # def close(self):
-    #     print('{} closed. In channel: {}'.format(type(self).__name__, self.channel)
-    #     super(Communicator, self).close()
-
     def send(self, call):
         """Send call to target. Thread-safe.
 
@@ -258,7 +241,6 @@ class Sender(Communicator):
         data = self.client.encoder.encode(dict(call))
         self.socket.send('{} '.format(len(data)).encode())
         self.socket.send(data.encode())
-        print('Python send: ' + data)
 
 
 class Receiver(Communicator):
@@ -284,5 +266,4 @@ class Receiver(Communicator):
             call = self._read()
             if call is None:
                 break
-            print('{} put {}'.format(self, call))
             self.channels[call.id] = call
