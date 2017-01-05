@@ -96,15 +96,13 @@ class ExecutionTargetRPCClient(object):
             call = r.receive(id, timeout)
         except TimeoutError:
             # TODO send timeout to target so that I can tell IOError from TLE. Or is that important?
-            print('Receiving from {} timed out'.format(target))
             raise
 
         assert call.id == id
         if isinstance(call, Response):
             if call.error:
-                msg = 'exception raised while executing external target'
-                ExcWrapper, exc = call.error.to_exception()
-                raise_from(ExcWrapper(msg), exc)
+                exc, ext_exc = call.error.to_exceptions()
+                raise_from(exc, ext_exc)
             else:
                 return call.result
         else:
