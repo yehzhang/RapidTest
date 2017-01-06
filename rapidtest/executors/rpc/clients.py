@@ -116,6 +116,7 @@ class ExecutionTargetRPCClient(object):
 
     @classmethod
     def _get_object_hook_handler(cls, dependencies):
+        """Python object from external sources must be instantiated with constructor. """
         def _object_hook_handler(d):
             ctor_pair = d.pop('__jsonclass__', None)
             if ctor_pair is not None:

@@ -1,6 +1,7 @@
 package execution;
 
 import java.io.PrintWriter;
+import java.io.Serializable;
 import java.io.StringWriter;
 import java.lang.reflect.InvocationTargetException;
 import java.util.HashMap;
@@ -22,7 +23,7 @@ public class Response {
     }
 
     static Response fromException(Throwable ex, Request request) {
-        Map<String, Object> ctorArgs = new HashMap<>();
+        Map<String, Serializable> ctorArgs = new HashMap<>();
 
         StringWriter writer = new StringWriter();
         ex.printStackTrace(new PrintWriter(writer));
@@ -43,17 +44,8 @@ public class Response {
         ctorArgs.put("name", ex.getClass().getSimpleName());
         ctorArgs.put("message", ex.getMessage());
 
-        Object error = destructToJsonPrimitives("ExternalException", ctorArgs, null);
+        Object error = new Json.PyObj("ExternalException", ctorArgs);
         return new Response(null, error, request);
-    }
-
-    static Object destructToJsonPrimitives(String typeName, Object constructorParams, Map<String,
-            Object> attributes) {
-        // TODO move to serializer
-        Map<String, Object> obj = (attributes == null) ? new HashMap<>() : new HashMap<>
-                (attributes);
-        obj.put("__jsonclass__", new Object[]{typeName, constructorParams});
-        return obj;
     }
 
     final Object result;

@@ -9,7 +9,11 @@ import com.google.gson.JsonDeserializer;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
+import com.google.gson.JsonPrimitive;
+import com.google.gson.JsonSerializationContext;
+import com.google.gson.JsonSerializer;
 
+import java.io.Serializable;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Executable;
 import java.lang.reflect.Method;
@@ -23,6 +27,7 @@ public class Json {
         gson = new GsonBuilder()
                 .registerTypeAdapter(Deserializable.class, new DefaultDeserializer())
                 .registerTypeAdapter(Request.class, new RequestDeserializer())
+                .registerTypeAdapter(PyObj.class, new PyObjSerializer())
                 .setFieldNamingPolicy(FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES)
                 .create();
 
@@ -169,5 +174,60 @@ public class Json {
     }
 
     interface Deserializable {
+    }
+
+    static class PyObj {
+        PyObj(String name, Map<String, ? extends Serializable> attributes) {
+            this.name = name;
+            this.attributes = attributes;
+        }
+
+        public Map<String, ? extends Serializable> getAttributes() {
+            return attributes;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        final String name;
+        final Map<String, ? extends Serializable> attributes;
+    }
+
+    class PyObjSerializer implements JsonSerializer<PyObj> {
+
+        @Override
+        public JsonElement serialize(PyObj o, Type type, JsonSerializationContext
+                jsonSerializationContext) {
+            JsonObject params = new JsonObject();
+            for (Map.Entry<String, ? extends Serializable> e : o.getAttributes().entrySet()) {
+                Serializable v = e.getValue();
+                JsonPrimitive p;
+                if (v instanceof Number) {
+                    p = new JsonPrimitive((Number) v);
+                }
+                else if (v instanceof String) {
+                    p = new JsonPrimitive((String) v);
+                }
+                else if (v instanceof Boolean) {
+                    p = new JsonPrimitive((Boolean) v);
+                }
+                else if (v instanceof Character) {
+                    p = new JsonPrimitive((Character) v);
+                }
+                else {
+                    p = new JsonPrimitive(v.toString());
+                }
+                params.add(e.getKey(), p);
+            }
+
+            JsonArray constructorArr = new JsonArray();
+            constructorArr.add(o.getName());
+            constructorArr.add(params);
+
+            JsonObject obj = new JsonObject();
+            obj.add("__jsonclass__", constructorArr);
+            return obj;
+        }
     }
 }
