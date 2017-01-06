@@ -3,17 +3,17 @@ package execution;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
+import static execution.Json.Deserializable;
 
-public class Request {
+public class Request implements Deserializable {
     Request(String method, Object[] params, String id) {
-        countRequests++;
         this.method = method;
         this.params = (params == null) ? new Object[0] : params;
         this.id = id;
     }
 
-    Request(String method, Object[] params, boolean notification) {
-        this(method, params, notification ? null : REQUEST_ID_PREFIX + countRequests);
+    Request(String method, Object[] params) {
+        this(method, params, null);
     }
 
     @SuppressWarnings("unchecked")
@@ -21,7 +21,7 @@ public class Request {
             InvocationTargetException, IllegalAccessException {
         Method meth = reflection.getMethod(o, method, params);
         method = meth.getName();
-        return reflection.invoke(o, meth, params);
+        return meth.invoke(o, params);
     }
 
     @Override
@@ -33,8 +33,4 @@ public class Request {
     String method;
     Object[] params;
     String id;
-
-    public static final String REQUEST_ID_PREFIX = "Java_target_request_";
-
-    private static int countRequests;
 }

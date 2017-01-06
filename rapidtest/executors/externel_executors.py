@@ -160,7 +160,8 @@ class ExternalExecutor(with_metaclass(ExternalExecutorFabric, BaseExecutor)):
         # Client keeps running until program exits
 
     def execute_operations(self, operations):
-        request_params = operations.to_params()
+        operations.set_target_name(self.target_name)
+        request_params = [operations.as_json_object()]
 
         self.count_executions += 1
 
@@ -179,7 +180,7 @@ class ExternalExecutor(with_metaclass(ExternalExecutorFabric, BaseExecutor)):
                 method_names, vals = result
                 operations.update_operation_names(method_names)
 
-                assert len(method_names) == len(vals)
+                assert len(operations) == len(vals)
                 return (self.finalize_operation(*t) for t in zip(operations, vals))
 
     def prepare_external_target(self, socket_address):

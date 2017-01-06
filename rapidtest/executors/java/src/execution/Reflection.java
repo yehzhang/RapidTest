@@ -43,35 +43,20 @@ public class Reflection {
         return getConstructor(clazz).newInstance(params);
     }
 
-    Object invoke(Object o, Method method, Object[] params) throws InvocationTargetException,
-            IllegalAccessException {
-        try {
-            return method.invoke(o, params);
-        } catch (IllegalArgumentException ignored) {
-        }
-
-        String fmt = "%s(%s) got parameter types (%s)";
-        String expected = Utils.join(", ", Class::getSimpleName, method.getParameterTypes());
-        String got = Utils.join(", ", Class::getSimpleName, asTypes(params));
-        String msg = String.format(fmt, method.getName(), expected, got);
-        throw new IllegalArgumentException(msg);
-    }
-
-
     Method getMethod(Object o, String name, Object[] params) throws NoSuchMethodException {
-        return getMethod(o.getClass(), name, asTypes(params));
+        return getMethod(o.getClass(), name, params);
     }
 
     /**
      * Return the method to execute according to its name and parameter types.
      * In case methodName or types is null, a method of best matching is returned.
      */
-    Method getMethod(Class<?> clazz, String name, Class[] types) throws NoSuchMethodException {
+    Method getMethod(Class<?> clazz, String name, Object[] params) throws NoSuchMethodException {
         try {
             return getMethod(clazz, name);
         } catch (IllegalArgumentException ignored) {
         }
-        return clazz.getMethod(name, types);
+        return clazz.getMethod(name, asTypes(params)); // cache?
     }
 
     Method getMethod(Class<?> clazz, String name) {

@@ -10,21 +10,29 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Executable;
+import java.lang.reflect.Method;
 import java.lang.reflect.Type;
-import java.util.ArrayList;
-import java.util.Iterator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class Json {
-    Json(Reflection reflection) {
+    Json(Reflection reflection, List<Class<?>> dependencies) {
         gson = new GsonBuilder()
-                .registerTypeAdapter(Operations.class, new OperationsDeserializer())
+                .registerTypeAdapter(Deserializable.class, new DefaultDeserializer())
                 .registerTypeAdapter(Request.class, new RequestDeserializer())
                 .setFieldNamingPolicy(FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES)
                 .create();
 
         this.reflection = reflection;
+
+        dependencies.add(Request.class);
+        this.dependencies = new HashMap<>();
+        for (Class<?> dependency : dependencies) {
+            this.dependencies.put(dependency.getSimpleName(), dependency);
+        }
     }
 
     String dump(Object o) {
@@ -35,99 +43,131 @@ public class Json {
         return gson.fromJson(data, clazz);
     }
 
-    Json setTarget(Class<?> target) {
-        this.target = target;
-        return this;
-    }
-
     private Gson gson;
     private Reflection reflection;
-    private Class target;
+    private Map<String, Class<?>> dependencies;
 
 
-    static String getOrNull(JsonObject json, String key) {
-        JsonElement elem = json.get(key);
-        return elem.isJsonNull() ? null : elem.getAsString();
-    }
-
-    private static Object[] castToCallableParameterTypes(JsonElement params, Executable exe,
-                                                         JsonDeserializationContext context) {
-        JsonArray arr = params.isJsonNull() ? null : params.getAsJsonArray();
-        int arrSize = (arr == null) ? 0 : arr.size();
-        Class[] types = exe.getParameterTypes();
-        if (arrSize != types.length) {
-            throw new IllegalArgumentException();
-        }
-
-        // Cast each object to its corresponding parameter type in method signature
-        Object[] paramsArr = new Object[types.length];
-        for (int i = 0; i < types.length; i++) {
-            JsonElement param = arr.get(i);
-
-            // Check if it is a Java Object
-            if (param.isJsonObject()) {
-                // TODO check if __jsonclass__. otherwise dict
-                assert false;
-                continue;
+    abstract class BaseDeserializer<T> implements JsonDeserializer<T> {
+        Object[] castToCallableParameterTypes(JsonElement params, Executable exe,
+                                              JsonDeserializationContext context) {
+            JsonArray arr = params.isJsonNull() ? null : params.getAsJsonArray();
+            int arrSize = (arr == null) ? 0 : arr.size();
+            Class[] types = exe.getParameterTypes();
+            if (arrSize != types.length) {
+                String msg = String.format("%s takes %d arguments but %d were given", exe.getName(),
+                        types.length, arrSize);
+                throw new IllegalArgumentException(msg);
             }
 
-            paramsArr[i] = context.deserialize(param, types[i]);
-        }
-
-        return paramsArr;
-    }
-
-    class OperationsDeserializer implements JsonDeserializer<Operations> {
-
-        @Override
-        public Operations deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext
-                context) throws JsonParseException {
-            JsonObject request = json.getAsJsonObject();
-
-            Iterator<JsonElement> iterParams = request.get("params").getAsJsonArray().iterator();
-
-            JsonObject kwargs = iterParams.next().getAsJsonObject();
-            Boolean inPlace = kwargs.get("in_place").getAsBoolean();
-
-
-            Object[] initParams;
+            // Cast each object to its corresponding parameter type in method signature
+            Object[] paramsArr = new Object[types.length];
             try {
-                initParams = castToCallableParameterTypes(kwargs.get("constructor"), reflection
-                        .getConstructor(target), context);
-            } catch (IllegalArgumentException ignored) {
-                throw new RuntimeException("constructor is not an array");
+                for (int i = 0; i < types.length; i++) {
+                    JsonElement param = arr.get(i);
+
+                    // Check if it is a Java Object
+                    if (param.isJsonObject()) {
+                        // TODO check if __jsonclass__. otherwise dict
+                        assert false;
+                        continue;
+                    }
+
+                    paramsArr[i] = context.deserialize(param, types[i]);
+                }
+            } catch (Exception e) {
+                String fmt = "%s() takes parameters of types (%s)";
+                String expected = Utils.join(", ", Class::getSimpleName, types);
+                String msg = String.format(fmt, exe.getName(), expected);
+                throw new IllegalArgumentException(msg);
             }
+            return paramsArr;
+        }
 
-            List<Request> operations = new ArrayList<>();
-            iterParams.forEachRemaining(param -> operations.add(context.deserialize(param,
-                    Request.class)));
-
-            String method = getOrNull(request, "method");
-            String id = getOrNull(request, "id");
-
-            return new Operations(initParams, operations, inPlace, method, id);
+        Class<?> getDependency(String name) {
+            Class<?> clazz = dependencies.get(name);
+            if (clazz == null) {
+                throw new RuntimeException("Class named \"" + name + "\" not found");
+            }
+            return clazz;
         }
     }
 
-    class RequestDeserializer implements JsonDeserializer<Request> {
 
+    class DefaultDeserializer extends BaseDeserializer<Object> {
+        @Override
+        public Object deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext
+                context) throws JsonParseException {
+            JsonObject obj = json.getAsJsonObject();
+            JsonElement jsonClass = obj.remove("__jsonclass__");
+            if (jsonClass == null) {
+                return context.deserialize(obj, Object.class);
+            }
+            JsonArray jsonClassArr = jsonClass.getAsJsonArray();
+
+            // Deserialize to Object of a type
+            String className = jsonClassArr.get(0).getAsString();
+            Class<?> clazz = getDependency(className);
+            JsonElement jsonParams = jsonClassArr.get(1);
+            if (jsonParams.isJsonNull()) {
+                // Directly deserialize
+                return context.deserialize(obj, clazz);
+            }
+            else {
+                // Call constructor
+                // Note that parameter types are cast only if constructor is used
+                Constructor<?> ctor = reflection.getConstructor(clazz);
+                Object[] params = castToCallableParameterTypes(jsonParams, ctor, context);
+                try {
+                    return ctor.newInstance(params);
+                } catch (Exception e) {
+                    throw new RuntimeException("Cannot instantiate \"" + className + "\"", e);
+                }
+            }
+        }
+    }
+
+    class RequestDeserializer extends BaseDeserializer<Request> {
         @Override
         public Request deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext
                 context) throws JsonParseException {
             JsonObject request = json.getAsJsonObject();
 
-            String method = getOrNull(request, "method");
-            String id = getOrNull(request, "id");
+            String id = getString(request, "id");
 
+            String method;
             Object[] paramsArr;
-            try {
-                paramsArr = castToCallableParameterTypes(request.get("params"), reflection
-                        .getMethod(target, method), context);
-            } catch (IllegalArgumentException ignored) {
-                throw new RuntimeException("params is not an array");
+            JsonElement jsonMethod = request.get("method");
+            JsonArray params = request.get("params").getAsJsonArray();
+            if (jsonMethod.isJsonArray()) {
+                // Calls method
+                JsonArray qualifiedName = jsonMethod.getAsJsonArray();
+                String targetName = qualifiedName.get(0).getAsString();
+                Class<?> target = getDependency(targetName);
+                method = getString(qualifiedName.get(1));
+                Method callingMethod = reflection.getMethod(target, method);
+                method = callingMethod.getName();
+                paramsArr = castToCallableParameterTypes(params, callingMethod, context);
+            }
+            else {
+                // Does not call method
+                method = jsonMethod.getAsString();
+                paramsArr = context.deserialize(params, Deserializable[].class);
             }
 
             return new Request(method, paramsArr, id);
         }
+
+        String getString(JsonObject json, String key) {
+            JsonElement elem = json.get(key);
+            return elem == null ? null : getString(elem);
+        }
+
+        String getString(JsonElement json) {
+            return json.isJsonNull() ? null : json.getAsString();
+        }
+    }
+
+    interface Deserializable {
     }
 }

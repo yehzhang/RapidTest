@@ -100,3 +100,5 @@ do_tests.py
 rapidtest/executors/*/src/out
 
 examples/solutions/Solution.*
+
+rapidtest/executors/java/src/execution/MedianOfTwoSortedArrays.java

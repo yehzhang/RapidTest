@@ -16,11 +16,13 @@ class JavaExecutor(CompiledExecutor):
     ENTRY_CLASS = 'Main'
 
     PKG_PATTERN = re.compile(r'\s*package\b')
+    CLS_DCLR = re.compile(r'([^{]*public class \w+)')
 
     # Must in PACKAGE
     TEMPLATE_TARGETS = 'StaticConfig.java',
 
-    COMMAND_COMPILE = '/usr/bin/javac -d "{out_path}" -cp "{src_path}:{lib_path}/*" {src_files} {args}'
+    COMMAND_COMPILE = '/usr/bin/javac -d "{out_path}" -cp "{src_path}:{lib_path}/*" {src_files} {' \
+                      'args}'
     COMMAND_RUN = '/usr/bin/java -cp "{out_path}:{lib_path}/*" {entry_point} {args}'
 
     def __init__(self, target, target_name=None):
@@ -75,6 +77,9 @@ class JavaExecutor(CompiledExecutor):
 
         if self.PKG_PATTERN.match(content) is not None:
             raise ValueError('Cannot execute target that belongs to a package')
+
+        # Implements Deserializable to make Gson deserialize arbitrary object
+        content = self.CLS_DCLR.sub(r'\1 implements Json.Deserializable', content)
 
         with open(path.join(self.temp_package_path, self.target_filename), 'w') as fout:
             fout.write('package {};\n'.format(self.PKG_DIR))

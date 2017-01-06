@@ -25,11 +25,11 @@ public class Utils {
 
     public static class Tuple<A, B> {
         public Tuple(A a, B b) {
-            this.a = a;
-            this.b = b;
+            this._1 = a;
+            this._2 = b;
         }
 
-        public final A a;
-        public final B b;
+        public final A _1;
+        public final B _2;
     }
 }

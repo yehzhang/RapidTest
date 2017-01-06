@@ -40,7 +40,7 @@ class BaseExecutor(object):
         if self.in_place_selector:
             output = self.in_place_selector(output)
         output = self.normalize_raw(output)
-        return operation.to_output(output)
+        return operation.as_output(output)
 
     def normalize_raw(self, val):
         return self.post_proc(self._normalize_type(val))

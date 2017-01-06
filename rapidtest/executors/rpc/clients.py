@@ -68,8 +68,7 @@ class ExecutionTargetRPCClient(object):
         :param int receive_timeout:
         """
         request_id = self.new_id()
-        request = Request(method, params, request_id)
-        self._send(target, request)
+        self._send(target, Request(method, params, request_id))
         return self._wait_response(target, request_id, receive_timeout)
 
     def notify(self, target, method, params=None):
@@ -85,9 +84,13 @@ class ExecutionTargetRPCClient(object):
     def disconnect(self, target):
         self.acceptor.remove_workers(target)
 
-    def _send(self, target, request):
+    def _send(self, target, call):
+        """Send call to target.
+
+        :param Call call:
+        """
         _, s = self.acceptor.get_workers(target)
-        s.send(request)
+        s.send(call)
 
     def _wait_response(self, target, id, timeout):
         """

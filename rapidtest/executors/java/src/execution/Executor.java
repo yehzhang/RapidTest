@@ -3,48 +3,50 @@ package execution;
 import java.io.Closeable;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
+import java.util.ArrayList;
+import java.util.List;
 
 import static execution.StaticConfig.METHOD_EXECUTE;
+import static execution.StaticConfig.TARGET_CLASS;
 
 
 public class Executor implements Closeable {
     public Executor() throws IOException {
         reflection = new Reflection();
-        json = new Json(reflection);
-        server = new ExecutionRPCServer(json);
+        List<Class<?>> dependencies = new ArrayList<>();
+        dependencies.add(TARGET_CLASS);
+        server = new ExecutionRPCServer(reflection, dependencies);
     }
 
-    public <T> boolean run(Class<T> target) throws IOException {
-        json.setTarget(target);
-
+    public boolean run() throws IOException {
         server.sayHello();
 
         while (true) {
-            Operations operations = null;
+            Request request = null;
 
             try {
-                operations = server.receive(Operations.class);
-                if (operations == null) {
+                request = server.receive();
+                if (request == null) {
                     return true;
                 }
-                switch (operations.method) {
+                switch (request.method) {
                     case METHOD_EXECUTE:
-                        Object output = operations.execute(target, reflection);
+                        Operations operations = (Operations) request.params[0];
+                        Object output = operations.execute(reflection);
                         // Return method names
                         output = new Object[]{operations.listExecutedMethods(), output};
-                        server.respond(output, operations);
+                        server.respond(output, request);
                         break;
                     default:
                         return true;
                 }
-            } catch (InvocationTargetException | InstantiationException | NoSuchMethodException |
-                    IllegalAccessException e) {
-                server.respond(e, operations);
+            } catch (InvocationTargetException | NoSuchMethodException | IllegalAccessException e) {
+                server.respond(e, request);
             } catch (Exception e) {
-                if (operations == null) {
+                if (request == null) {
                     throw e;
                 }
-                server.respond(e, operations);
+                server.respond(e, request);
                 return false;
             }
         }
@@ -57,5 +59,4 @@ public class Executor implements Closeable {
 
     ExecutionRPCServer server;
     Reflection reflection;
-    Json json;
 }

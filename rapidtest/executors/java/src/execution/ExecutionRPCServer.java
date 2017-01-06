@@ -7,6 +7,7 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.io.Reader;
 import java.net.Socket;
+import java.util.List;
 
 import static execution.StaticConfig.HOST_ADDR;
 import static execution.StaticConfig.HOST_PORT;
@@ -14,8 +15,10 @@ import static execution.StaticConfig.METHOD_HELLO;
 import static execution.StaticConfig.TARGET_ID;
 
 public class ExecutionRPCServer implements Closeable {
-    public ExecutionRPCServer(Json json) throws IOException {
-        this.json = json;
+    public ExecutionRPCServer(Reflection reflection, List<Class<?>> dependencies) throws
+            IOException {
+        dependencies.add(Operations.class);
+        this.json = new Json(reflection, dependencies);
 
         socket = new Socket(HOST_ADDR, HOST_PORT);
         try {
@@ -28,7 +31,7 @@ public class ExecutionRPCServer implements Closeable {
     }
 
     void sayHello() {
-        Request request = new Request(METHOD_HELLO, new Object[]{TARGET_ID}, true);
+        Request request = new Request(METHOD_HELLO, new Object[]{TARGET_ID});
         send(request);
     }
 
@@ -40,7 +43,7 @@ public class ExecutionRPCServer implements Closeable {
         send(new Response(result, request));
     }
 
-    protected <T extends Request> T receive(Class<T> clazz) throws IOException {
+    protected Request receive() throws IOException {
         StringBuilder buffer = new StringBuilder();
         int dataLength = -1;
 
@@ -68,7 +71,10 @@ public class ExecutionRPCServer implements Closeable {
             return null;
         }
         String data = buffer.toString();
-        return json.load(data, clazz);
+
+//        System.out.println("Java received: " + data);
+
+        return json.load(data, Request.class);
     }
 
     protected void send(Object o) {
@@ -83,6 +89,8 @@ public class ExecutionRPCServer implements Closeable {
 
         out.print(data);
         out.flush();
+
+//        System.out.println("Java sent: " + data);
     }
 
     @Override

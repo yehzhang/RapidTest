@@ -1,5 +1,3 @@
-from rapidtest.utils import Dictable
-
 MSG_CANNOT_GUESS_METHOD = '''\
 cannot find the target method or constructor. You may use operations if there are multiple \
 methods to be called, or make sure that there is at most one public method or constructor in the \
@@ -19,7 +17,7 @@ class TimeoutError(OSError):
     pass
 
 
-class ExternalException(Dictable):
+class ExternalException(object):
     def __init__(self, name, message=None, stack_trace=None, from_target=False):
         self.name = str(name)
         self.message = message or ''

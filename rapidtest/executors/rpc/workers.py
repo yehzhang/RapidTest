@@ -1,9 +1,16 @@
+import logging
+
+# logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+logger = logging.getLogger(__name__)
+logger.addHandler(logging.NullHandler())
+
 import select
+import traceback
 from socket import socket
 from threading import Thread
 
 from .exceptions import TimeoutError
-from .utils import Request, Response, queuedict, Call
+from .utils import Request, Response, queuedict, JsonSerializable
 from ..._compat import queue, raise_from
 
 
@@ -27,6 +34,7 @@ class ThreadedSocketWorker(object):
 
     def close(self):
         self.socket.close()
+        self._log('close() called')
 
     def join(self, timeout=None):
         self.thread.join(timeout)
@@ -36,6 +44,9 @@ class ThreadedSocketWorker(object):
             e = self.exception
             self.exception = None
             raise e
+
+    def _log(self, msg, *args, **kwargs):
+        logger.debug('%s ' + msg, self, *args, **kwargs)
 
     def _start_thread(self):
         t = Thread(target=self._handle, name=str(self))
@@ -49,10 +60,12 @@ class ThreadedSocketWorker(object):
             self.handle()
         except (OSError, IOError):
             # Ignore OSError which is most likely caused by closing socket
+            self._log('ended with OSError %s', traceback.format_exc())
             pass
         except BaseException as e:
             # Store exception raised in child thread
             self.exception = e
+            self._log('ended with Exception %s', traceback.format_exc())
         finally:
             self._working = False
             self.close()
@@ -110,6 +123,7 @@ class ThreadedSocketWorker(object):
         self._read_buf = buf[length:]
 
         assert isinstance(length, int)
+        self._log('received %s bytes: %s', length, buf[:length])
         if length == 0:
             return None
         obj = self.client.decoder.decode(buf[:length])
@@ -213,15 +227,15 @@ class Sender(Communicator):
 
         super(Sender, self).__init__(acceptor, target, socket)
 
-    def send(self, call):
-        """Send call to target. Thread-safe.
-
-        :param Call call:
+    def send(self, obj):
         """
-        if not isinstance(call, Call):
-            raise TypeError("'call' is not a Call")
+
+        :param JsonSerializable obj:
+        """
+        if not isinstance(obj, JsonSerializable):
+            raise TypeError("'obj' is not a JsonSerializable")
         self._non_worker_thread_access()
-        self.channel.put_nowait(call)
+        self.channel.put_nowait(obj)
 
     def handle(self):
         while True:
@@ -234,13 +248,11 @@ class Sender(Communicator):
         self.channel.put_nowait(None)  # None means terminating
         super(Communicator, self).close()
 
-    def _send(self, call):
-        """
-        :param Call call:
-        """
-        data = self.client.encoder.encode(dict(call))
+    def _send(self, obj):
+        data = self.client.encoder.encode(obj.as_json_object())
         self.socket.send('{} '.format(len(data)).encode())
         self.socket.send(data.encode())
+        self._log('sent %s', data)
 
 
 class Receiver(Communicator):

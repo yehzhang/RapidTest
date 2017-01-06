@@ -4,7 +4,7 @@ import java.net.InetAddress;
 
 public class StaticConfig {
     public static final String TARGET_ID = "Java_target_1";
-    public static final Class<?> TARGET_CLASS = null;
+    public static final Class<?> TARGET_CLASS = Object.class;
     public static final String METHOD_HELLO = "hello";
     public static final String METHOD_EXECUTE = "execute";
     public static final String METHOD_TERMINATE = "terminate";

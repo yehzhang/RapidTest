@@ -1,10 +1,62 @@
 from collections import defaultdict
 from threading import Lock, Condition
 
-from ...utils import Dictable
+
+class JsonSerializable(object):
+    def as_json_object(self):
+        """A dict describing an object in the external executor with the format:
+        {
+            "__jsonclass__": ["constructor_name", [constructor_params, ...]],
+            "attribute1": value1,
+            "attribute2": value2,
+            ...
+        }
+
+        The object can be instantiated using either constructor or attributes.
+        If constructor is used, attributes are ignored.
+
+        :return Dict:
+        """
+        init_params = self.as_constructor_params()
+        if init_params is None:
+            obj = self.as_attributes()
+        else:
+            obj = {}
+        obj['__jsonclass__'] = [self.get_external_name(), init_params]
+        return obj
+
+    def get_external_name(self):
+        """
+        :return str: name of the external object to be instantiated
+        """
+        return type(self).__name__
+
+    def as_attributes(self):
+        """
+        :return Dict[str, Any]: values of dict should also be json-serializable
+        """
+        return dict((k, v) for k, v in self.__dict__.items() if v is not None)
+
+    def as_constructor_params(self):
+        """
+        :return List:
+        """
+        return None
 
 
-class Call(Dictable):
+class ExternalObject(JsonSerializable):
+    def __init__(self, target_name, init_args):
+        self.target_name = target_name
+        self.init_args = init_args
+
+    def as_constructor_params(self):
+        return self.init_args
+
+    def get_external_name(self):
+        return self.target_name
+
+
+class Call(JsonSerializable):
     def __init__(self, id):
         self.id = id
 
