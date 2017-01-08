@@ -17,6 +17,9 @@ class NativeExecutor(BaseExecutor):
 
         self.inject_dependencies(target)
 
+    def close(self):
+        pass
+
     def execute_operations(self, operations):
         """Lazy-evaluate operations but get functions immediately. """
         return (self._execute(*t) for t in zip(self.get_functions(operations), operations))
