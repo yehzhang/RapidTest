@@ -268,6 +268,7 @@ class Test(object):
         return self.EXIT_EMPTY, 'No case was tested'
         # return self.EXIT_UNKNOWN, None
 
+
 class Session(object):
     def __init__(self, case_generator, name=None):
         """

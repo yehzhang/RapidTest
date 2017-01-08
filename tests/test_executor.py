@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from rapidtest.executors.dependencies import get_dependencies
+from rapidtest.executors.python.dependencies import get_dependencies
 
 
 class TestExecutor(TestCase):
