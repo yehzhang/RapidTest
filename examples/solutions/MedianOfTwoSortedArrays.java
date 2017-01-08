@@ -1,3 +1,4 @@
+// This is an incorrect solution
 public class MedianOfTwoSortedArrays {
     public double findMedianSortedArrays(int A[], int B[]) {
         int n = A.length;
