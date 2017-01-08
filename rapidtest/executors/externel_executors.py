@@ -1,10 +1,13 @@
 import atexit
 import json
+import logging
 import re
 import shlex
 from os import path
 from subprocess import Popen
 from threading import Timer
+
+logger = logging.getLogger(__name__)
 
 from .common_executors import BaseExecutor
 from .rpc import ExecutionTargetRPCClient
@@ -217,6 +220,7 @@ class ExternalExecutor(with_metaclass(ExternalExecutorFabric, BaseExecutor)):
         :param str cmd:
         :return Popen:
         """
+        logger.debug('started process with command: %s', cmd)
         return Popen(shlex.split(cmd))
 
     @staticmethod

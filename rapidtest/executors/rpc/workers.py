@@ -1,8 +1,6 @@
 import logging
 
-# logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 logger = logging.getLogger(__name__)
-logger.addHandler(logging.NullHandler())
 
 import select
 import traceback
@@ -229,7 +227,6 @@ class Sender(Communicator):
 
     def send(self, obj):
         """
-
         :param JsonSerializable obj:
         """
         if not isinstance(obj, JsonSerializable):
@@ -249,7 +246,7 @@ class Sender(Communicator):
         super(Communicator, self).close()
 
     def _send(self, obj):
-        data = self.client.encoder.encode(obj.as_json_object())
+        data = self.client.encoder.encode(obj)
         self.socket.send('{} '.format(len(data)).encode())
         self.socket.send(data.encode())
         self._log('sent %s', data)

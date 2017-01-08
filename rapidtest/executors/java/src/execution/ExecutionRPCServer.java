@@ -8,18 +8,20 @@ import java.io.PrintWriter;
 import java.io.Reader;
 import java.net.Socket;
 import java.util.List;
+import java.util.logging.Logger;
 
 import static execution.StaticConfig.HOST_ADDR;
 import static execution.StaticConfig.HOST_PORT;
 import static execution.StaticConfig.METHOD_HELLO;
 import static execution.StaticConfig.TARGET_ID;
 
-public class ExecutionRPCServer implements Closeable {
-    public ExecutionRPCServer(Reflection reflection, List<Class<?>> dependencies) throws
-            IOException {
-        dependencies.add(Operations.class);
-        this.json = new Json(reflection, dependencies);
+class ExecutionRPCServer implements Closeable {
+    ExecutionRPCServer(Json json) {
+        this.json = json;
+        logger = Logger.getLogger(this.getClass().getName());
+    }
 
+    void connect() throws IOException {
         socket = new Socket(HOST_ADDR, HOST_PORT);
         try {
             out = new PrintWriter(socket.getOutputStream());
@@ -35,11 +37,11 @@ public class ExecutionRPCServer implements Closeable {
         send(request);
     }
 
-    public void respond(Exception exc, Request request) {
+    void respond(Exception exc, Request request) {
         send(Response.fromException(exc, request));
     }
 
-    public void respond(Object result, Request request) {
+    void respond(Object result, Request request) {
         send(new Response(result, request));
     }
 
@@ -72,7 +74,7 @@ public class ExecutionRPCServer implements Closeable {
         }
         String data = buffer.toString();
 
-//        System.out.println("Java received: " + data);
+        logger.info("Java received: " + data);
 
         return json.load(data, Request.class);
     }
@@ -90,7 +92,7 @@ public class ExecutionRPCServer implements Closeable {
         out.print(data);
         out.flush();
 
-//        System.out.println("Java sent: " + data);
+        logger.info("Java sent: " + data);
     }
 
     @Override
@@ -98,8 +100,9 @@ public class ExecutionRPCServer implements Closeable {
         socket.close();
     }
 
-    private Socket socket;
-    private PrintWriter out;
-    private Reader in;
-    private Json json;
+    Socket socket;
+    PrintWriter out;
+    Reader in;
+    Json json;
+    Logger logger;
 }

@@ -65,7 +65,7 @@ class Operations(JsonSerializable):
         assert self.target_name is not None
         return {
             'in_place':        bool(self.in_place_selector),
-            'target_instance': ExternalObject(self.target_name, self.init_args).as_json_object(),
+            'target_instance': ExternalObject(self.target_name, self.init_args),
             'operations':      [o.as_json_object(self.target_name) for o in self.operations],
         }
 

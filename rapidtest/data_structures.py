@@ -1,13 +1,46 @@
 from collections import deque
+from importlib import import_module
 from itertools import count
 from json import loads
 from random import random
 
-from .executors.dependencies import TreeNode as BaseTreeNode, ListNode as BaseListNode
+from .executors.python.dependencies import TreeNode as BaseTreeNode, ListNode as BaseListNode
+from .executors.rpc.utils import JsonSerializable
 from .utils import nop, randbool, randints
 
 
-class TreeNode(BaseTreeNode):
+def get_dependencies():
+    """
+    :return Dict[str, type]: {class_name: class}
+    """
+    dependencies = {}
+    pkg_name, _ = __name__.rsplit('.', 1)
+    for module_name, obj_names in PY_DEPENDENCY_NAMES.items():
+        module = import_module(module_name, pkg_name)
+        for obj_name in obj_names:
+            obj = getattr(module, obj_name)
+            dependencies[obj_name] = obj
+    return dependencies
+
+
+PY_DEPENDENCY_NAMES = {
+    __name__: ['TreeNode', 'ListNode'],
+}
+
+
+class SerializableDataStructure(JsonSerializable):
+    def as_constructor_params(self):
+        return [self.flatten()]
+
+    def get_external_name(self):
+        name, _ = super(SerializableDataStructure, self).get_external_name()
+        return name, 'from_iterable'
+
+    def flatten(self):
+        raise NotImplementedError
+
+
+class TreeNode(BaseTreeNode, SerializableDataStructure):
     INORDER = 'inorder'
     PREORDER = 'preorder'
     POSTORDER = 'postorder'
@@ -189,7 +222,7 @@ class TreeNode(BaseTreeNode):
         return node
 
 
-class ListNode(BaseListNode):
+class ListNode(BaseListNode, SerializableDataStructure):
     def __iter__(self):
         return self._gen()
 
@@ -221,3 +254,6 @@ class ListNode(BaseListNode):
             node.next = cls(val)
             node = node.next
         return root
+
+    def flatten(self):
+        return [list(self)]

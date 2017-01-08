@@ -7,7 +7,7 @@ import java.util.List;
 
 import static execution.Json.Deserializable;
 
-public class Operations implements Deserializable {
+class Operations implements Deserializable {
     /**
      * @return Output of executing target
      */

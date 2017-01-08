@@ -8,7 +8,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 @SuppressWarnings({"FieldCanBeLocal", "unused"})
-public class Response {
+class Response {
     Response(Object result, Request request) {
         this(result, null, request);
     }
@@ -44,7 +44,7 @@ public class Response {
         ctorArgs.put("name", ex.getClass().getSimpleName());
         ctorArgs.put("message", ex.getMessage());
 
-        Object error = new Json.PyObj("ExternalException", ctorArgs);
+        Object error = new Utils.PyObj("ExternalException", ctorArgs);
         return new Response(null, error, request);
     }
 

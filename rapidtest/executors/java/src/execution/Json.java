@@ -13,7 +13,6 @@ import com.google.gson.JsonPrimitive;
 import com.google.gson.JsonSerializationContext;
 import com.google.gson.JsonSerializer;
 
-import java.io.Serializable;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Executable;
 import java.lang.reflect.Method;
@@ -27,7 +26,7 @@ public class Json {
         gson = new GsonBuilder()
                 .registerTypeAdapter(Deserializable.class, new DefaultDeserializer())
                 .registerTypeAdapter(Request.class, new RequestDeserializer())
-                .registerTypeAdapter(PyObj.class, new PyObjSerializer())
+                .registerTypeAdapter(Serializable.class, new SerializableSerializer())
                 .setFieldNamingPolicy(FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES)
                 .create();
 
@@ -48,9 +47,9 @@ public class Json {
         return gson.fromJson(data, clazz);
     }
 
-    private Gson gson;
-    private Reflection reflection;
-    private Map<String, Class<?>> dependencies;
+    Gson gson;
+    Reflection reflection;
+    Map<String, Class<?>> dependencies;
 
 
     abstract class BaseDeserializer<T> implements JsonDeserializer<T> {
@@ -71,20 +70,22 @@ public class Json {
                 for (int i = 0; i < types.length; i++) {
                     JsonElement param = arr.get(i);
 
-                    // Check if it is a Java Object
-                    if (param.isJsonObject()) {
-                        // TODO check if __jsonclass__. otherwise dict
-                        assert false;
-                        continue;
+                    // Check if it is an External Object
+                    Type hint;
+                    if (param.isJsonObject() && param.getAsJsonObject().has("__jsonclass__")) {
+                        hint = Deserializable.class;
+                    }
+                    else {
+                        hint = types[i];
                     }
 
-                    paramsArr[i] = context.deserialize(param, types[i]);
+                    paramsArr[i] = context.deserialize(param, hint);
                 }
             } catch (Exception e) {
-                String fmt = "%s() takes parameters of types (%s)";
+                String fmt = "%s() takes parameters of types \"%s\"";
                 String expected = Utils.join(", ", Class::getSimpleName, types);
                 String msg = String.format(fmt, exe.getName(), expected);
-                throw new IllegalArgumentException(msg);
+                throw new IllegalArgumentException(msg, e);
             }
             return paramsArr;
         }
@@ -95,6 +96,16 @@ public class Json {
                 throw new RuntimeException("Class named \"" + name + "\" not found");
             }
             return clazz;
+        }
+
+        String toCamelCase(String name) {
+            String[] words = name.split("_");
+            StringBuilder sb = new StringBuilder(words[0].toLowerCase());
+            for (int i = 1; i < words.length; i++) {
+                sb.append(Character.toUpperCase(words[i].charAt(0)))
+                        .append(words[i].substring(1).toLowerCase());
+            }
+            return sb.toString();
         }
     }
 
@@ -110,8 +121,9 @@ public class Json {
             }
             JsonArray jsonClassArr = jsonClass.getAsJsonArray();
 
-            // Deserialize to Object of a type
-            String className = jsonClassArr.get(0).getAsString();
+            // Deserialize to object of a certain type
+            JsonArray instantiator = jsonClassArr.get(0).getAsJsonArray();
+            String className = instantiator.get(0).getAsString();
             Class<?> clazz = getDependency(className);
             JsonElement jsonParams = jsonClassArr.get(1);
             if (jsonParams.isJsonNull()) {
@@ -119,12 +131,26 @@ public class Json {
                 return context.deserialize(obj, clazz);
             }
             else {
-                // Call constructor
-                // Note that parameter types are cast only if constructor is used
-                Constructor<?> ctor = reflection.getConstructor(clazz);
-                Object[] params = castToCallableParameterTypes(jsonParams, ctor, context);
+                // Note that parameter are cast to correct types only if they are used to
+                // instantiate an object
+                int paramsCount = jsonParams.getAsJsonArray().size();
+                JsonElement jsonCallableName = instantiator.get(1);
                 try {
-                    return ctor.newInstance(params);
+                    if (jsonCallableName.isJsonNull()) {
+                        // Call constructor
+                        Constructor ctor = reflection.guessConstructor(clazz, paramsCount);
+                        Object[] params = castToCallableParameterTypes(jsonParams, ctor, context);
+                        return ctor.newInstance(params);
+                    }
+                    else {
+                        // Call static factory method
+                        String callableName = toCamelCase(jsonCallableName.getAsString());
+                        Method factory = reflection.guessMethod(clazz, callableName, true,
+                                paramsCount);
+                        Object[] params = castToCallableParameterTypes(jsonParams, factory,
+                                context);
+                        return factory.invoke(null, params);
+                    }
                 } catch (Exception e) {
                     throw new RuntimeException("Cannot instantiate \"" + className + "\"", e);
                 }
@@ -143,14 +169,15 @@ public class Json {
             String method;
             Object[] paramsArr;
             JsonElement jsonMethod = request.get("method");
-            JsonArray params = request.get("params").getAsJsonArray();
+            JsonElement paramsElem = request.get("params");
+            JsonArray params = (paramsElem == null) ? new JsonArray() : paramsElem.getAsJsonArray();
             if (jsonMethod.isJsonArray()) {
                 // Calls method
                 JsonArray qualifiedName = jsonMethod.getAsJsonArray();
                 String targetName = qualifiedName.get(0).getAsString();
                 Class<?> target = getDependency(targetName);
                 method = getString(qualifiedName.get(1));
-                Method callingMethod = reflection.getMethod(target, method);
+                Method callingMethod = reflection.guessMethod(target, method, false, params.size());
                 method = callingMethod.getName();
                 paramsArr = castToCallableParameterTypes(params, callingMethod, context);
             }
@@ -173,53 +200,30 @@ public class Json {
         }
     }
 
-    interface Deserializable {
+    public interface Deserializable {
     }
 
-    static class PyObj {
-        PyObj(String name, Map<String, ? extends Serializable> attributes) {
-            this.name = name;
-            this.attributes = attributes;
+    interface Serializable extends java.io.Serializable {
+        default Map<String, ? extends java.io.Serializable> getAttributes() {
+            throw new RuntimeException("not implemented error");
         }
 
-        public Map<String, ? extends Serializable> getAttributes() {
-            return attributes;
+        default List<? extends java.io.Serializable> getParams() {
+            throw new RuntimeException("not implemented error");
         }
 
-        public String getName() {
-            return name;
-        }
+        boolean isAttributes();
 
-        final String name;
-        final Map<String, ? extends Serializable> attributes;
+        String getName();
     }
 
-    class PyObjSerializer implements JsonSerializer<PyObj> {
+    class SerializableSerializer implements JsonSerializer<Serializable> {
 
         @Override
-        public JsonElement serialize(PyObj o, Type type, JsonSerializationContext
+        public JsonElement serialize(Serializable o, Type type, JsonSerializationContext
                 jsonSerializationContext) {
-            JsonObject params = new JsonObject();
-            for (Map.Entry<String, ? extends Serializable> e : o.getAttributes().entrySet()) {
-                Serializable v = e.getValue();
-                JsonPrimitive p;
-                if (v instanceof Number) {
-                    p = new JsonPrimitive((Number) v);
-                }
-                else if (v instanceof String) {
-                    p = new JsonPrimitive((String) v);
-                }
-                else if (v instanceof Boolean) {
-                    p = new JsonPrimitive((Boolean) v);
-                }
-                else if (v instanceof Character) {
-                    p = new JsonPrimitive((Character) v);
-                }
-                else {
-                    p = new JsonPrimitive(v.toString());
-                }
-                params.add(e.getKey(), p);
-            }
+            JsonElement params = o.isAttributes() ? serialize(o.getAttributes()) : serialize(o
+                    .getParams());
 
             JsonArray constructorArr = new JsonArray();
             constructorArr.add(o.getName());
@@ -228,6 +232,41 @@ public class Json {
             JsonObject obj = new JsonObject();
             obj.add("__jsonclass__", constructorArr);
             return obj;
+        }
+
+        JsonElement serialize(Map<String, ? extends java.io.Serializable> m) {
+            JsonObject params = new JsonObject();
+            for (Map.Entry<String, ? extends java.io.Serializable> e : m.entrySet()) {
+                java.io.Serializable v = e.getValue();
+                params.add(e.getKey(), serialize(v));
+            }
+            return params;
+        }
+
+        JsonElement serialize(List<? extends java.io.Serializable> list) {
+            JsonArray params = new JsonArray();
+            for (java.io.Serializable item : list) {
+                params.add(serialize(item));
+            }
+            return params;
+        }
+
+        JsonPrimitive serialize(java.io.Serializable s) {
+            if (s instanceof Number) {
+                return new JsonPrimitive((Number) s);
+            }
+            else if (s instanceof String) {
+                return new JsonPrimitive((String) s);
+            }
+            else if (s instanceof Boolean) {
+                return new JsonPrimitive((Boolean) s);
+            }
+            else if (s instanceof Character) {
+                return new JsonPrimitive((Character) s);
+            }
+            else {
+                return new JsonPrimitive(s.toString());
+            }
         }
     }
 }

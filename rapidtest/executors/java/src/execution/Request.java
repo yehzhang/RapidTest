@@ -5,7 +5,7 @@ import java.lang.reflect.Method;
 
 import static execution.Json.Deserializable;
 
-public class Request implements Deserializable {
+class Request implements Deserializable {
     Request(String method, Object[] params, String id) {
         this.method = method;
         this.params = (params == null) ? new Object[0] : params;

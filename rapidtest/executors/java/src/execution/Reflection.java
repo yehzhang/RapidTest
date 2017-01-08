@@ -1,46 +1,36 @@
 package execution;
 
 import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Executable;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static execution.StaticConfig.CANNOT_GUESS;
-import static execution.Utils.Tuple;
+import static execution.Utils.Tuple2;
+import static execution.Utils.Tuple4;
 
-public class Reflection {
+class Reflection {
     Reflection() {
         methodsCache = new HashMap<>();
         ctorsCache = new HashMap<>();
     }
 
-    private Constructor<?> guessConstructor(Class<?> clazz) {
-        List<Constructor<?>> ctors = Arrays.stream(clazz.getDeclaredConstructors())
-                .filter(ctor -> Modifier.isPublic(ctor.getModifiers()))
-                .collect(Collectors.toList());
-        if (ctors.size() == 1) {
-            return ctors.get(0);
-        }
-        throw new IllegalArgumentException(CANNOT_GUESS);
-    }
-
-    Constructor<?> getConstructor(Class<?> clazz) {
-        return putIfAbsent(ctorsCache, clazz, () -> guessConstructor(clazz));
-    }
-
-    /**
-     * Instantiate clazz with init_args by the constructor of corresponding signature
-     */
-    Object newInstance(Class<?> clazz, Object[] params) throws NoSuchMethodException,
-            IllegalAccessException, InvocationTargetException, InstantiationException {
-        return getConstructor(clazz).newInstance(params);
+    Constructor<?> guessConstructor(Class<?> clazz, int paramsCount) {
+        return putIfAbsent(ctorsCache, new Tuple2<>(clazz, paramsCount), () -> {
+            List<Predicate<? super Constructor>> predicates = new ArrayList<>();
+            predicates.add(IS_NOT_PRIVATE);
+            predicates.add(hasSameParametersCount(paramsCount));
+            return guessOne(clazz.getDeclaredConstructors(), predicates);
+        });
     }
 
     Method getMethod(Object o, String name, Object[] params) throws NoSuchMethodException {
@@ -53,48 +43,35 @@ public class Reflection {
      */
     Method getMethod(Class<?> clazz, String name, Object[] params) throws NoSuchMethodException {
         try {
-            return getMethod(clazz, name);
+            return guessMethod(clazz, name, false, params.length);
         } catch (IllegalArgumentException ignored) {
         }
         return clazz.getMethod(name, asTypes(params)); // cache?
     }
 
-    Method getMethod(Class<?> clazz, String name) {
-        return putIfAbsent(methodsCache, new Tuple<>(clazz, name),
-                () -> guessMethod(clazz, (name == null) ? str -> true : name::equals));
+    Method guessMethod(Class<?> clazz, String name, boolean isFactory, int paramsCount) {
+        return putIfAbsent(methodsCache, new Tuple4<>(clazz, name, isFactory, paramsCount), () -> {
+            List<Predicate<? super Method>> predicates = new ArrayList<>();
+            if (name != null) {
+                predicates.add(meth -> meth.getName().equals(name));
+            }
+            predicates.add(isFactory ? IS_NOT_PRIVATE : IS_PUBLIC);
+            predicates.add(isFactory ? IS_STATIC : IS_STATIC.negate());
+            predicates.add(hasSameParametersCount(paramsCount));
+            predicates.add(IS_NOT_MAIN);
+            return guessOne(clazz.getDeclaredMethods(), predicates);
+        });
     }
 
-    /**
-     * Find the unique public method declared in clazz
-     */
-    private Method guessMethod(Class<?> clazz, Function<String, Boolean> isSameName) {
-        Method[] methods = Arrays.stream(clazz.getDeclaredMethods())
-                .filter(meth -> {
-                    String methName = meth.getName();
-                    int mods = meth.getModifiers();
-                    // Is different name?
-                    if (!isSameName.apply(methName)) {
-                        return false;
-                    }
-                    // Is not public?
-                    if (!Modifier.isPublic(mods)) {
-                        return false;
-                    }
-                    // Is main?
-                    if (Modifier.isStatic(mods) &&
-                            meth.getReturnType() == Void.TYPE &&
-                            methName.equals("main") &&
-                            Arrays.equals(meth.getParameterTypes(), MAIN_PARAM_TYPES)) {
-                        return false;
-                    }
-                    return true;
-                })
-                .toArray(Method[]::new);
-
-        if (methods.length == 1) {
-            return methods[0];
+    private <T> T guessOne(T[] items, List<Predicate<? super T>> predicates) {
+        Stream<T> stream = Arrays.stream(items);
+        for (Predicate<? super T> predicate : predicates) {
+            stream = stream.filter(predicate);
         }
-
+        List<T> results = stream.collect(Collectors.toList());
+        if (results.size() == 1) {
+            return results.get(0);
+        }
         throw new IllegalArgumentException(CANNOT_GUESS);
     }
 
@@ -104,15 +81,41 @@ public class Reflection {
 
     private <K, V> V putIfAbsent(Map<K, V> mapping, K key, Supplier<V> supplier) {
         if (mapping.containsKey(key)) {
-            return mapping.get(key);
+            V val = mapping.get(key);
+            if (val == null) {
+                throw new IllegalArgumentException("exception has thrown last time");
+            }
+            return val;
         }
-        V value = supplier.get();
+
+        V value;
+        try {
+            value = supplier.get();
+            assert value != null;
+        } catch (Exception e) {
+            mapping.put(key, null);
+            throw e;
+        }
         mapping.put(key, value);
         return value;
     }
 
-    private Map<Tuple<Class, String>, Method> methodsCache;
-    private Map<Class, Constructor<?>> ctorsCache;
+    private Predicate<Executable> hasSameParametersCount(int count) {
+        return meth -> meth.getParameterCount() == count;
+    }
 
-    private static final Class[] MAIN_PARAM_TYPES = new Class[]{String[].class};
+    private Map<Tuple4<Class, String, Boolean, Integer>, Method> methodsCache;
+    private Map<Tuple2<Class, Integer>, Constructor<?>> ctorsCache;
+
+    private static final Predicate<Executable> IS_NOT_PRIVATE = exe -> !Modifier.isPrivate(exe
+            .getModifiers());
+    private static final Predicate<Executable> IS_PUBLIC = exe -> Modifier.isPublic(exe
+            .getModifiers());
+    private static final Predicate<Method> IS_NOT_MAIN = meth ->
+            !(Modifier.isStatic(meth.getModifiers()) &&
+                    meth.getReturnType() == Void.TYPE &&
+                    meth.getName().equals("main") &&
+                    Arrays.equals(meth.getParameterTypes(), new Class[]{String[].class}));
+    private static final Predicate<Method> IS_STATIC = meth -> Modifier.isStatic(meth
+            .getModifiers());
 }

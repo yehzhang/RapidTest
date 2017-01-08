@@ -1,16 +1,20 @@
 package execution;
 
 import java.net.InetAddress;
+import sandbox.${target_name};
+import java.util.logging.Level;
 
-public class StaticConfig {
-    public static final Class<${target_name}> TARGET_CLASS = ${target_name}.class;
-    public static final String TARGET_ID = "${target_id}";
-    public static final String METHOD_HELLO = "${method_hello}";
-    public static final String METHOD_EXECUTE = "${method_execute}";
-    public static final String METHOD_TERMINATE = "${method_terminate}";
-    public static final InetAddress HOST_ADDR;
-    public static final int HOST_PORT = ${host_port};
-    public static final String CANNOT_GUESS = "${exc_msg_guess_method}";
+class StaticConfig {
+    static final Class<${target_name}> TARGET_CLASS = ${target_name}.class;
+    static final String TARGET_ID = "${target_id}";
+    static final String METHOD_HELLO = "${method_hello}";
+    static final String METHOD_EXECUTE = "${method_execute}";
+    static final String METHOD_TERMINATE = "${method_terminate}";
+    static final InetAddress HOST_ADDR;
+    static final int HOST_PORT = ${host_port};
+    static final String CANNOT_GUESS = "${exc_msg_guess_method}";
+    static final Level LOGGING_LEVEL = ${logging_level};
+
 
     static {
         try {

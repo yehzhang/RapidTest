@@ -1,6 +1,6 @@
 package execution;
 
-public class Main {
+class Main {
     public static void main(String args[]) {
         try (Executor executor = new Executor()) {
             executor.run();

@@ -5,20 +5,30 @@ import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Logger;
 
+import static execution.StaticConfig.LOGGING_LEVEL;
 import static execution.StaticConfig.METHOD_EXECUTE;
 import static execution.StaticConfig.TARGET_CLASS;
 
 
-public class Executor implements Closeable {
-    public Executor() throws IOException {
+class Executor implements Closeable {
+    Executor() {
+        Logger.getLogger("").setLevel(LOGGING_LEVEL);
+
         reflection = new Reflection();
+
         List<Class<?>> dependencies = new ArrayList<>();
         dependencies.add(TARGET_CLASS);
-        server = new ExecutionRPCServer(reflection, dependencies);
+        dependencies.add(Operations.class);
+        dependencies.add(Dependencies.ListNode.class);
+        dependencies.add(Dependencies.TreeNode.class);
+        server = new ExecutionRPCServer(new Json(reflection, dependencies));
     }
 
-    public boolean run() throws IOException {
+    boolean run() throws IOException {
+        server.connect();
+
         server.sayHello();
 
         while (true) {

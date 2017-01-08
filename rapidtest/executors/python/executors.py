@@ -1,8 +1,8 @@
 from copy import deepcopy
 from inspect import isclass, getmembers, ismethod, getmodule
 
+from .dependencies import get_dependencies
 from ..common_executors import BaseExecutor
-from ..dependencies import get_dependencies
 from ..rpc.exceptions import MSG_CANNOT_GUESS_METHOD
 
 

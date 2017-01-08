@@ -1,3 +1,5 @@
+import atexit
+import logging
 from inspect import isclass
 
 from .common_executors import BaseExecutor
@@ -6,6 +8,8 @@ from .java import *
 from .operations import Operation, Operations
 from .python import *
 from ..utils import isstring
+
+logger = logging.getLogger(__name__)
 
 
 class BaseTarget(object):
@@ -41,3 +45,19 @@ class Target(BaseTarget):
             self._executors_pool[executor_id] = executor
 
         super(Target, self).__init__(self._executors_pool[executor_id])
+
+    @classmethod
+    def close(cls):
+        for executor_id, e in list(cls._executors_pool.items()):
+            target, _ = executor_id
+            logger.debug('Executor %s on %s closed', e.ENVIRONMENT, target)
+            e.close()
+            del cls._executors_pool[executor_id]
+
+
+def _close_executors():
+    Target.close()
+
+
+atexit.register(_close_executors)
+del _close_executors

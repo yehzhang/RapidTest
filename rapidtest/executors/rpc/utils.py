@@ -27,9 +27,10 @@ class JsonSerializable(object):
 
     def get_external_name(self):
         """
-        :return str: name of the external object to be instantiated
+        :return Tuple[str, str]: name of the external object to be instantiated,
+            and the factory method to be called. None means calling constructor
         """
-        return type(self).__name__
+        return type(self).__name__, None
 
     def as_attributes(self):
         """
@@ -45,15 +46,16 @@ class JsonSerializable(object):
 
 
 class ExternalObject(JsonSerializable):
-    def __init__(self, target_name, init_args):
+    def __init__(self, target_name, init_args, constructor_name=None):
         self.target_name = target_name
+        self.constructor_name = constructor_name
         self.init_args = init_args
 
     def as_constructor_params(self):
         return self.init_args
 
     def get_external_name(self):
-        return self.target_name
+        return self.target_name, self.constructor_name
 
 
 class Call(JsonSerializable):

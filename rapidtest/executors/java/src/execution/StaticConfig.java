@@ -1,16 +1,18 @@
 package execution;
 
 import java.net.InetAddress;
+import java.util.logging.Level;
 
-public class StaticConfig {
-    public static final String TARGET_ID = "Java_target_1";
-    public static final Class<?> TARGET_CLASS = Object.class;
-    public static final String METHOD_HELLO = "hello";
-    public static final String METHOD_EXECUTE = "execute";
-    public static final String METHOD_TERMINATE = "terminate";
-    public static final InetAddress HOST_ADDR;
-    public static final int HOST_PORT = 61039;
-    public static final String CANNOT_GUESS = null;
+class StaticConfig {
+    static final String TARGET_ID = "Java_target_1";
+    static final Class<?> TARGET_CLASS = MedianOfTwoSortedArrays.class;
+    static final String METHOD_HELLO = "hello";
+    static final String METHOD_EXECUTE = "execute";
+    static final String METHOD_TERMINATE = "terminate";
+    static final InetAddress HOST_ADDR;
+    static final int HOST_PORT = 61039;
+    static final String CANNOT_GUESS = "cannot guess";
+    static final Level LOGGING_LEVEL = Level.ALL;
 
 
     static {
