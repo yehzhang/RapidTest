@@ -1,0 +1,38 @@
+from rapidtest import Test, Case
+from itertools import combinations, chain
+from random import randint
+
+with Test('Solution.java') as t:
+    Case('12', result=2)
+    Case('1', result=1)
+    Case('26', result=2)
+    Case('27', result=1)
+    Case('227', result=2)
+    Case('272', result=1)
+    Case('722', result=2)
+    Case('222', result=3)
+    Case('7264', result=2)
+    Case('01', result=0)
+    Case('1001', result=0)
+
+    Case('*', result=9)
+    Case('1*', result=18)
+    Case('*1', result=11)
+    Case('0*', result=0)
+    Case('*0', result=2)
+    Case('*00', result=0)
+    # Case('**0', result=??)
+    Case('0**', result=0)
+    Case('*0*', result=0 + 2 * 9 + 0)
+    Case('*11', result=9 + 2 + 9)
+    # Case('**1', result=??)
+    # Case('1**', result=??)
+    Case('*1*', result=81 + 2 * 9 + 9 * 9)
+    Case('1*1', result=9 + 9 + 2)
+    Case('11*', result=9 + 9 + 9)
+    Case('*11', result=9 + 2 + 9)
+    Case('**', result=9 * 9 + 15)
+    Case('***', result=9 * 9 * 9 + 15 * 9 + 9 * 15)
+    Case('*********', result=291868912)
+    Case('**********1111111111', result=133236775)
+    Case('********************', result=104671669)
