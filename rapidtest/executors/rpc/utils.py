@@ -103,22 +103,17 @@ class queuedict(object):
         with self.mutex:
             if key in self.waiter_conditions:
                 self.waiter_conditions[key].notify()
-
+                del self.waiter_conditions[key]
             self.d[key] = val
 
     def get(self, key, block=True, timeout=None):
         with self.mutex:
             cond = self._wait_data(key, block, timeout)
-            if cond:
-                cond.notify()
-
             return self.d[key]
 
     def pop(self, key, block=True, timeout=None):
         with self.mutex:
             self._wait_data(key, block, timeout)
-
-            del self.waiter_conditions[key]
             return self.d.pop(key)
 
     def _wait_data(self, key, block, timeout):
@@ -126,7 +121,7 @@ class queuedict(object):
             if key not in self.d:
                 cond = self.waiter_conditions[key]
                 cond.wait(timeout)
-                return cond
+                cond.notify()
 
     def __repr__(self):
         with self.mutex:
